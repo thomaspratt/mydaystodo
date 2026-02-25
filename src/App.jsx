@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { THEMES, PRIORITY_CONFIG, ENCOURAGEMENTS, DEFAULT_CATEGORIES, DAY_NAMES, MONTH_NAMES } from "./themes";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { THEMES, PRIORITY_CONFIG, ENCOURAGEMENTS, DEFAULT_CATEGORIES, DAY_NAMES, MONTH_NAMES, generateTheme } from "./themes";
 import { dateKey, isToday, daysBetween, addDays, parseDate, getWeekDates, getMonthDates, generateId, getRecurrenceInstances, playSound } from "./utils";
 import { loadState, saveState } from "./storage";
 import { supabase } from "./supabase";
@@ -10,6 +10,79 @@ import TaskModal from "./TaskModal";
 import SettingsModal from "./SettingsModal";
 import DeleteDialog from "./DeleteDialog";
 
+const TASK_ROW_HEIGHT = 18; // ~10px font + 4px padding + 2px gap + 2px border
+const DATE_HEADER_HEIGHT = 24;
+const OVERFLOW_ROW_HEIGHT = 16;
+
+function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, cardProps }) {
+  const cellRef = useRef(null);
+  const [maxTasks, setMaxTasks] = useState(3);
+
+  useEffect(() => {
+    if (!cellRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      const h = entry.contentBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      const available = h - DATE_HEADER_HEIGHT;
+      const fits = Math.floor(available / TASK_ROW_HEIGHT);
+      setMaxTasks(Math.max(1, fits));
+    });
+    obs.observe(cellRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const hasOverflow = dayTasks.length > maxTasks;
+  const visibleCount = hasOverflow ? Math.max(1, maxTasks - 1) : maxTasks;
+  const overflow = dayTasks.length - visibleCount;
+
+  return (
+    <div ref={cellRef}
+      className={`day-card${dragOverDate === dk ? " drop-target" : ""}`}
+      onDragOver={(e) => handleDragOver(e, date)}
+      onDragLeave={() => setDragOverDate(null)}
+      onDrop={(e) => handleDrop(e, date)}
+      onClick={() => openNewTask(date)}
+      style={{
+        background: today ? t.today : t.calBg, borderRadius: 8, padding: 6,
+        border: today ? `2px solid ${t.accent}44` : `1px solid ${t.border}`,
+        opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer",
+        minWidth: 0, overflow: "hidden",
+      }}>
+      <div style={{ fontSize: 13, fontWeight: today ? 800 : 600, color: today ? t.accent : t.text, marginBottom: 4 }}>{date.getDate()}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        {dayTasks.slice(0, visibleCount).map((task) => <TaskCard key={task.id} task={task} inMonthView={true} {...cardProps} />)}
+        {hasOverflow && <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, padding: "1px 5px" }}>+{overflow}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, cardProps }) {
+  const numWeeks = Math.ceil(monthDates.length / 7);
+  return (
+    <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 240px)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+        {DAY_NAMES.map((d) => (
+          <div key={d} style={{ textAlign: "center", fontSize: 11, color: t.textMuted, fontWeight: 600, padding: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{d}</div>
+        ))}
+      </div>
+      <div className="month-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gridTemplateRows: `repeat(${numWeeks}, 1fr)`, gap: 2, flex: 1 }}>
+        {monthDates.map((date) => {
+          const dk = dateKey(date);
+          const dayTasks = getTasksForDate(date);
+          const today = isTodayFn(date);
+          const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+          return (
+            <MonthDayCell key={dk} date={date} dk={dk} dayTasks={dayTasks} today={today}
+              isCurrentMonth={isCurrentMonth} t={t} dragOverDate={dragOverDate}
+              handleDragOver={handleDragOver} setDragOverDate={setDragOverDate}
+              handleDrop={handleDrop} openNewTask={openNewTask} cardProps={cardProps} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function App({ session }) {
   const [theme, setTheme] = useState(() => loadState("theme", "sunset"));
   const [sound, setSound] = useState(() => loadState("sound", "chime"));
@@ -17,6 +90,7 @@ export default function App({ session }) {
   const [view, setView] = useState(() => loadState("view", "week"));
   const [tasks, setTasks] = useState(() => loadState("tasks", []));
   const [categories, setCategories] = useState(() => loadState("categories", DEFAULT_CATEGORIES));
+  const [customThemes, setCustomThemes] = useState(() => loadState("customThemes", {}));
   const [modalTask, setModalTask] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState({ message: "", visible: false });
@@ -27,11 +101,13 @@ export default function App({ session }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef(null);
+  const lastCategoryRef = useRef(null);
 
-  const t = THEMES[theme];
+  const allThemes = useMemo(() => ({ ...THEMES, ...customThemes }), [customThemes]);
+  const t = allThemes[theme] || allThemes.sunset;
 
   // Cloud sync
-  useCloudSync(session.user.id, { theme, sound, view, tasks, categories }, { setTheme, setSound, setView, setTasks, setCategories });
+  useCloudSync(session.user.id, { theme, sound, view, tasks, categories, customThemes }, { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes });
 
   // Persist
   useEffect(() => { saveState("theme", theme); }, [theme]);
@@ -39,6 +115,7 @@ export default function App({ session }) {
   useEffect(() => { saveState("view", view); }, [view]);
   useEffect(() => { saveState("tasks", tasks); }, [tasks]);
   useEffect(() => { saveState("categories", categories); }, [categories]);
+  useEffect(() => { saveState("customThemes", customThemes); }, [customThemes]);
 
   // Auto-clean blank tasks (but keep markers)
   useEffect(() => {
@@ -107,7 +184,8 @@ export default function App({ session }) {
 
   // ── Task CRUD ──
   function openNewTask(date) {
-    setModalTask({ isNew: true, date: dateKey(date), title: "", category: categories[0]?.name || "", priority: "none", recurrence: null, subtasks: [] });
+    const defaultCat = lastCategoryRef.current || categories[0]?.name || "";
+    setModalTask({ isNew: true, date: dateKey(date), title: "", category: defaultCat, priority: "none", recurrence: null, subtasks: [] });
   }
 
   function openEditTask(task) {
@@ -120,6 +198,7 @@ export default function App({ session }) {
   }
 
   function saveTask(taskData) {
+    if (taskData.category) lastCategoryRef.current = taskData.category;
     if (taskData.isNew) {
       const newTask = { ...taskData, id: generateId(), completed: false, isNew: undefined };
       const newTasks = [newTask];
@@ -386,7 +465,7 @@ export default function App({ session }) {
 
   // ── Shared task card props ──
   const cardProps = {
-    theme, categories, confettiTask,
+    theme, allThemes, categories, confettiTask,
     onToggleComplete: toggleComplete,
     onEdit: openEditTask,
     onDragStart: handleDragStart,
@@ -554,6 +633,7 @@ export default function App({ session }) {
                     background: today ? t.today : t.calBg, borderRadius: 14, padding: 12, minHeight: 200,
                     border: today ? `2px solid ${t.accent}44` : `1px solid ${t.border}`,
                     transition: "all 0.2s ease", display: "flex", flexDirection: "column",
+                    minWidth: 0, overflow: "hidden",
                   }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div>
@@ -576,40 +656,13 @@ export default function App({ session }) {
         </div>
       ) : (
         /* Month View */
-        <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
-            {DAY_NAMES.map((d) => (
-              <div key={d} style={{ textAlign: "center", fontSize: 11, color: t.textMuted, fontWeight: 600, padding: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{d}</div>
-            ))}
-          </div>
-          <div className="month-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
-            {monthDates.map((date) => {
-              const dk = dateKey(date);
-              const dayTasks = getTasksForDate(date);
-              const today = isToday(date);
-              const isCurrentMonth = date.getMonth() === currentDate.getMonth();
-              return (
-                <div key={dk}
-                  className={`day-card${dragOverDate === dk ? " drop-target" : ""}`}
-                  onDragOver={(e) => handleDragOver(e, date)}
-                  onDragLeave={() => setDragOverDate(null)}
-                  onDrop={(e) => handleDrop(e, date)}
-                  onClick={() => openNewTask(date)}
-                  style={{
-                    background: today ? t.today : t.calBg, borderRadius: 8, padding: 6, minHeight: 80,
-                    border: today ? `2px solid ${t.accent}44` : `1px solid ${t.border}`,
-                    opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer",
-                  }}>
-                  <div style={{ fontSize: 13, fontWeight: today ? 800 : 600, color: today ? t.accent : t.text, marginBottom: 4 }}>{date.getDate()}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {dayTasks.slice(0, 3).map((task) => <TaskCard key={task.id} task={task} inMonthView={true} {...cardProps} />)}
-                    {dayTasks.length > 3 && <div style={{ fontSize: 10, color: t.textMuted, padding: "0 5px" }}>+{dayTasks.length - 3} more</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <MonthGrid
+          monthDates={monthDates} currentDate={currentDate} t={t}
+          getTasksForDate={getTasksForDate} isToday={isToday}
+          dragOverDate={dragOverDate} handleDragOver={handleDragOver}
+          setDragOverDate={setDragOverDate} handleDrop={handleDrop}
+          openNewTask={openNewTask} cardProps={cardProps}
+        />
       )}
 
       {/* FAB */}
@@ -624,9 +677,9 @@ export default function App({ session }) {
       >+</button>
 
       {/* Modals */}
-      {modalTask && <TaskModal task={modalTask} onSave={saveTask} onRequestDelete={requestDelete} onClose={() => setModalTask(null)} categories={categories} theme={theme} />}
-      {showSettings && <SettingsModal theme={theme} setTheme={setTheme} sound={sound} setSound={setSound} categories={categories} setCategories={setCategories} onClose={() => setShowSettings(false)} />}
-      {deleteDialog && <DeleteDialog task={deleteDialog} onDeleteThis={() => deleteThisInstance(deleteDialog)} onDeleteAll={() => deleteAllFuture(deleteDialog)} onClose={() => setDeleteDialog(null)} theme={theme} />}
+      {modalTask && <TaskModal task={modalTask} onSave={saveTask} onRequestDelete={requestDelete} onClose={() => setModalTask(null)} categories={categories} theme={theme} allThemes={allThemes} />}
+      {showSettings && <SettingsModal theme={theme} setTheme={setTheme} sound={sound} setSound={setSound} categories={categories} setCategories={setCategories} customThemes={customThemes} setCustomThemes={setCustomThemes} allThemes={allThemes} onClose={() => setShowSettings(false)} />}
+      {deleteDialog && <DeleteDialog task={deleteDialog} onDeleteThis={() => deleteThisInstance(deleteDialog)} onDeleteAll={() => deleteAllFuture(deleteDialog)} onClose={() => setDeleteDialog(null)} theme={theme} allThemes={allThemes} />}
       <Toast message={toast.message} visible={toast.visible} />
     </div>
   );

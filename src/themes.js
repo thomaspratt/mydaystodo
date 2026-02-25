@@ -1,3 +1,57 @@
+// ── Hex → HSL conversion ──
+function hexToHsl(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+export function generateTheme(name, accentHex) {
+  const [h] = hexToHsl(accentHex);
+  return {
+    name,
+    bg: hslToHex(h, 20, 8),
+    surface: hslToHex(h, 20, 13),
+    surfaceHover: hslToHex(h, 18, 18),
+    text: hslToHex(h, 15, 95),
+    textMuted: hslToHex(h, 15, 55),
+    accent: accentHex,
+    border: hslToHex(h, 15, 25),
+    calBg: hslToHex(h, 18, 10),
+    today: hslToHex(h, 25, 18),
+    categories: [
+      accentHex,
+      hslToHex(h + 72, 65, 65),
+      hslToHex(h + 144, 65, 65),
+      hslToHex(h + 216, 65, 65),
+      hslToHex(h + 288, 65, 65),
+    ],
+  };
+}
+
 // ── Theme Definitions ──
 export const THEMES = {
   sunset: {
@@ -38,10 +92,10 @@ export const THEMES = {
 };
 
 export const PRIORITY_CONFIG = {
-  none: { label: "None", glow: "none", border: 1, icon: "" },
-  low: { label: "Low", glow: "0 0 4px", border: 1.5, icon: "○" },
-  medium: { label: "Medium", glow: "0 0 8px", border: 2, icon: "◉" },
-  high: { label: "High", glow: "0 0 14px", border: 3, icon: "★" },
+  none: { label: "None", glow: "none", border: 1, icon: "", iconSize: 1 },
+  low: { label: "Low", glow: "0 0 4px", border: 1.5, icon: "○", iconSize: 1 },
+  medium: { label: "Medium", glow: "0 0 8px", border: 2, icon: "●", iconSize: 1.15 },
+  high: { label: "High", glow: "0 0 14px", border: 3, icon: "★", iconSize: 1 },
 };
 
 export const SOUNDS = {

@@ -1,7 +1,7 @@
 import { THEMES } from "./themes";
 
-export default function DeleteDialog({ task, onDeleteThis, onDeleteAll, onClose, theme }) {
-  const t = THEMES[theme];
+export default function DeleteDialog({ task, onDeleteThis, onDeleteAll, onClose, theme, allThemes }) {
+  const t = (allThemes || THEMES)[theme] || THEMES.sunset;
   const isRecurring = !!(task.recurrence || task.isRecurrenceInstance);
 
   return (

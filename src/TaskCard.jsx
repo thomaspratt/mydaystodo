@@ -3,10 +3,10 @@ import { parseDate } from "./utils";
 import { Confetti } from "./Toast";
 
 export default function TaskCard({
-  task, inMonthView, theme, categories,
+  task, inMonthView, theme, allThemes, categories,
   confettiTask, onToggleComplete, onEdit, onDragStart,
 }) {
-  const t = THEMES[theme];
+  const t = (allThemes || THEMES)[theme] || THEMES.sunset;
   const catColor = categories.find((c) => c.name === task.category)?.color || t.accent;
   const pri = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.none;
 
@@ -21,10 +21,12 @@ export default function TaskCard({
           background: task.isRecurrenceInstance ? `${catColor}18` : `${catColor}33`,
           color: task.completed ? t.textMuted : t.text,
           textDecoration: task.completed ? "line-through" : "none",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          overflow: "hidden", whiteSpace: "nowrap",
           borderLeft: `2px ${task.isRecurrenceInstance ? "dashed" : "solid"} ${catColor}`,
           opacity: task.completed ? 0.5 : (task.isRecurrenceInstance ? 0.6 : 1),
-          cursor: "grab",
+          cursor: "grab", minWidth: 0,
+          maskImage: "linear-gradient(to right, black 60%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, black 60%, transparent 100%)",
         }}
       >
         {task.title}
@@ -68,9 +70,13 @@ export default function TaskCard({
           fontSize: 13, fontWeight: 600,
           color: task.completed ? t.textMuted : t.text,
           textDecoration: task.completed ? "line-through" : "none",
-          lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          lineHeight: 1.4, overflow: "hidden",
+          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
+          wordBreak: "break-word",
+          maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
         }}>
-          {pri.icon && <span style={{ marginRight: 4 }}>{pri.icon}</span>}
+          {pri.icon && <span style={{ marginRight: 4, fontSize: `${pri.iconSize}em` }}>{pri.icon}</span>}
           {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
           {task.title}
         </div>

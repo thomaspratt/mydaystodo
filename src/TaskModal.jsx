@@ -2,8 +2,8 @@ import { useState } from "react";
 import { THEMES, PRIORITY_CONFIG } from "./themes";
 import { parseDate, dateKey, generateId } from "./utils";
 
-export default function TaskModal({ task, onSave, onRequestDelete, onClose, categories, theme }) {
-  const t = THEMES[theme];
+export default function TaskModal({ task, onSave, onRequestDelete, onClose, categories, theme, allThemes }) {
+  const t = (allThemes || THEMES)[theme] || THEMES.sunset;
   const [title, setTitle] = useState(task?.title || "");
   const [category, setCategory] = useState(task?.category || (categories[0]?.name || ""));
   const [priority, setPriority] = useState(task?.priority || "none");
