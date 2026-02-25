@@ -2,8 +2,8 @@ import { useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase'
 
 export function useCloudSync(userId, state, setters) {
-  const { theme, sound, view, tasks, categories, customThemes } = state
-  const { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes } = setters
+  const { theme, sound, view, tasks, categories, customThemes, categoryColors } = state
+  const { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors } = setters
   const initialPullDone = useRef(false)
   const debounceTimer = useRef(null)
   const rowId = `state_${userId}`
@@ -32,6 +32,7 @@ export function useCloudSync(userId, state, setters) {
         if (d.tasks !== undefined) setTasks(d.tasks)
         if (d.categories !== undefined) setCategories(d.categories)
         if (d.customThemes !== undefined) setCustomThemes(d.customThemes)
+        if (d.categoryColors !== undefined && d.categoryColors._v >= 2) setCategoryColors(d.categoryColors)
       }
     } catch {
       // Network error — silently ignore
@@ -62,10 +63,10 @@ export function useCloudSync(userId, state, setters) {
     if (!initialPullDone.current) return
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
-      push({ theme, sound, view, tasks, categories, customThemes })
+      push({ theme, sound, view, tasks, categories, customThemes, categoryColors })
     }, 1500)
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
-  }, [theme, sound, view, tasks, categories, customThemes, push])
+  }, [theme, sound, view, tasks, categories, customThemes, categoryColors, push])
 
   // Re-pull on tab visibility change
   useEffect(() => {

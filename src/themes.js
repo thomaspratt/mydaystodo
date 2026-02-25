@@ -16,7 +16,7 @@ function hexToHsl(hex) {
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 }
 
-function hslToHex(h, s, l) {
+export function hslToHex(h, s, l) {
   h = ((h % 360) + 360) % 360;
   s /= 100;
   l /= 100;
@@ -59,28 +59,28 @@ export const THEMES = {
     bg: "#1a1216", surface: "#2a1f24", surfaceHover: "#3a2c32",
     text: "#f5e6eb", textMuted: "#b89aa5", accent: "#ff6b8a",
     border: "#4a3540", calBg: "#221a1e", today: "#3d2530",
-    categories: ["#ff6b8a", "#ffb347", "#87ceeb", "#dda0dd", "#98d4a2"],
+    categories: ["#e8807a", "#d4976b", "#c7a85e", "#d68cb2", "#b87878"],
   },
   forest: {
     name: "Forest",
     bg: "#0f1a14", surface: "#1a2b20", surfaceHover: "#243828",
     text: "#e0f0e4", textMuted: "#8aab94", accent: "#5fd68c",
     border: "#2e4a36", calBg: "#152218", today: "#1e3826",
-    categories: ["#5fd68c", "#f0c040", "#6bb5e0", "#c49bdb", "#e88a73"],
+    categories: ["#5aad6e", "#c4a24e", "#3d9e8a", "#8db85a", "#d48a5c"],
   },
   ocean: {
     name: "Ocean",
     bg: "#0c1520", surface: "#152233", surfaceHover: "#1e3048",
     text: "#dce8f5", textMuted: "#7a9aba", accent: "#4fc3f7",
     border: "#2a3f5c", calBg: "#111c2c", today: "#1a3050",
-    categories: ["#4fc3f7", "#ffcc80", "#ef9a9a", "#ce93d8", "#a5d6a7"],
+    categories: ["#4fb8d4", "#7a8ec4", "#5cc4a0", "#c49a6e", "#a07ebc"],
   },
   berry: {
     name: "Berry",
     bg: "#18101e", surface: "#261a30", surfaceHover: "#352440",
     text: "#f0e4f5", textMuted: "#a98abd", accent: "#d17bea",
     border: "#402e50", calBg: "#1e1528", today: "#30203e",
-    categories: ["#d17bea", "#ffb74d", "#4dd0e1", "#f48fb1", "#aed581"],
+    categories: ["#c470e0", "#e87aaa", "#7a8ee0", "#d4a05c", "#5cc4b8"],
   },
   lisafrank: {
     name: "Lisa Frank",

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { THEMES, PRIORITY_CONFIG, ENCOURAGEMENTS, DEFAULT_CATEGORIES, DAY_NAMES, MONTH_NAMES, generateTheme } from "./themes";
+import { THEMES, PRIORITY_CONFIG, ENCOURAGEMENTS, DEFAULT_CATEGORIES, DAY_NAMES, MONTH_NAMES, generateTheme, hslToHex as hslToHexUtil } from "./themes";
 import { dateKey, isToday, daysBetween, addDays, parseDate, getWeekDates, getMonthDates, generateId, getRecurrenceInstances, playSound } from "./utils";
 import { loadState, saveState } from "./storage";
 import { supabase } from "./supabase";
@@ -91,6 +91,12 @@ export default function App({ session }) {
   const [tasks, setTasks] = useState(() => loadState("tasks", []));
   const [categories, setCategories] = useState(() => loadState("categories", DEFAULT_CATEGORIES));
   const [customThemes, setCustomThemes] = useState(() => loadState("customThemes", {}));
+  const [categoryColors, setCategoryColors] = useState(() => {
+    const stored = loadState("categoryColors", {});
+    // Version 2: wipe stale palettes from before bespoke theme colors
+    if (stored._v !== 2) return { _v: 2 };
+    return stored;
+  });
   const [modalTask, setModalTask] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState({ message: "", visible: false });
@@ -106,8 +112,69 @@ export default function App({ session }) {
   const allThemes = useMemo(() => ({ ...THEMES, ...customThemes }), [customThemes]);
   const t = allThemes[theme] || allThemes.sunset;
 
+  // Get the palette for a theme (stored overrides > theme defaults)
+  const getThemePalette = useCallback((themeKey) => {
+    if (categoryColors[themeKey]) return categoryColors[themeKey];
+    const th = ({ ...THEMES, ...customThemes })[themeKey];
+    return th ? th.categories : THEMES.sunset.categories;
+  }, [categoryColors, customThemes]);
+
+  // Generate a random color that's reasonably vibrant
+  const randomCatColor = useCallback(() => {
+    const h = Math.floor(Math.random() * 360);
+    return hslToHexUtil(h, 55 + Math.random() * 20, 55 + Math.random() * 15);
+  }, []);
+
+  // Switch theme: save current colors, apply new theme's colors
+  // paletteOverride lets callers pass a palette for themes not yet in state
+  const setThemeWithColors = useCallback((newTheme, paletteOverride) => {
+    // Save current category colors under the current theme
+    const currentColors = categories.map((c) => c.color);
+    setCategoryColors((prev) => ({ ...prev, _v: 2, [theme]: currentColors }));
+
+    // Get the new theme's palette
+    const newPalette = paletteOverride || getThemePalette(newTheme);
+
+    // Apply new colors to categories
+    setCategories((prev) => prev.map((cat, i) => ({
+      ...cat,
+      color: i < newPalette.length ? newPalette[i] : (categoryColors[newTheme]?.[i] || randomCatColor()),
+    })));
+
+    setTheme(newTheme);
+  }, [theme, categories, categoryColors, getThemePalette, randomCatColor, setCategoryColors, setCategories, setTheme]);
+
+  // Save category colors back to current theme when user manually changes them
+  const prevCatsRef = useRef(null);
+  const prevThemeRef = useRef(theme);
+  useEffect(() => {
+    const colors = categories.map((c) => c.color);
+    const themeChanged = prevThemeRef.current !== theme;
+    prevThemeRef.current = theme;
+    // Only save if categories changed WITHOUT a theme switch (i.e. manual edit)
+    if (!themeChanged && prevCatsRef.current && JSON.stringify(prevCatsRef.current) !== JSON.stringify(colors)) {
+      setCategoryColors((prev) => ({ ...prev, _v: 2, [theme]: colors }));
+    }
+    prevCatsRef.current = colors;
+  }, [categories, theme]);
+
+  // On mount (or after version wipe), apply current theme's palette to categories
+  const initialColorApplied = useRef(false);
+  useEffect(() => {
+    if (initialColorApplied.current) return;
+    initialColorApplied.current = true;
+    // If no stored overrides for current theme, apply theme defaults
+    if (!categoryColors[theme]) {
+      const palette = t.categories;
+      setCategories((prev) => prev.map((cat, i) => ({
+        ...cat,
+        color: i < palette.length ? palette[i] : cat.color,
+      })));
+    }
+  }, []);
+
   // Cloud sync
-  useCloudSync(session.user.id, { theme, sound, view, tasks, categories, customThemes }, { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes });
+  useCloudSync(session.user.id, { theme, sound, view, tasks, categories, customThemes, categoryColors }, { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors });
 
   // Persist
   useEffect(() => { saveState("theme", theme); }, [theme]);
@@ -116,6 +183,7 @@ export default function App({ session }) {
   useEffect(() => { saveState("tasks", tasks); }, [tasks]);
   useEffect(() => { saveState("categories", categories); }, [categories]);
   useEffect(() => { saveState("customThemes", customThemes); }, [customThemes]);
+  useEffect(() => { saveState("categoryColors", categoryColors); }, [categoryColors]);
 
   // Auto-clean blank tasks (but keep markers)
   useEffect(() => {
@@ -678,7 +746,7 @@ export default function App({ session }) {
 
       {/* Modals */}
       {modalTask && <TaskModal task={modalTask} onSave={saveTask} onRequestDelete={requestDelete} onClose={() => setModalTask(null)} categories={categories} theme={theme} allThemes={allThemes} />}
-      {showSettings && <SettingsModal theme={theme} setTheme={setTheme} sound={sound} setSound={setSound} categories={categories} setCategories={setCategories} customThemes={customThemes} setCustomThemes={setCustomThemes} allThemes={allThemes} onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal theme={theme} setTheme={setThemeWithColors} sound={sound} setSound={setSound} categories={categories} setCategories={setCategories} customThemes={customThemes} setCustomThemes={setCustomThemes} allThemes={allThemes} onClose={() => setShowSettings(false)} />}
       {deleteDialog && <DeleteDialog task={deleteDialog} onDeleteThis={() => deleteThisInstance(deleteDialog)} onDeleteAll={() => deleteAllFuture(deleteDialog)} onClose={() => setDeleteDialog(null)} theme={theme} allThemes={allThemes} />}
       <Toast message={toast.message} visible={toast.visible} />
     </div>
