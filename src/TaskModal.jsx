@@ -32,6 +32,7 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
         case "weekly": endDate.setDate(endDate.getDate() + extra * 7); break;
         case "biweekly": endDate.setDate(endDate.getDate() + extra * 14); break;
         case "monthly": endDate.setMonth(endDate.getMonth() + extra); break;
+        case "yearly": endDate.setFullYear(endDate.getFullYear() + extra); break;
       }
       recurrenceEnd = dateKey(endDate);
     }
@@ -111,7 +112,7 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}>Repeat</label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {["none", "daily", "weekly", "biweekly", "monthly"].map((r) => (
+            {["none", "daily", "weekly", "biweekly", "monthly", "yearly"].map((r) => (
               <button key={r} onClick={() => setRecurrence(r)} style={pill(recurrence === r)}>
                 {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
               </button>
@@ -135,7 +136,7 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
                     }}
                   />
                   <span style={{ color: t.textMuted, fontSize: 12 }}>
-                    {{ daily: "days", weekly: "weeks", biweekly: "fortnights", monthly: "months" }[recurrence]}
+                    {{ daily: "days", weekly: "weeks", biweekly: "fortnights", monthly: "months", yearly: "years" }[recurrence]}
                   </span>
                 </div>
               )}

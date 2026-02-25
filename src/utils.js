@@ -70,18 +70,60 @@ export function playSound(soundKey) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const sound = SOUNDS[soundKey];
     if (!sound) return;
-    sound.freq.forEach((f, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = sound.type;
-      osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.08);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.08 + sound.dur);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + i * 0.08);
-      osc.stop(ctx.currentTime + i * 0.08 + sound.dur);
-    });
+    const now = ctx.currentTime;
+
+    if (sound.type === "noise") {
+      // White noise buffer
+      const len = ctx.sampleRate * sound.dur;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      if (sound.style === "pop") {
+        // Short filtered pop
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.setValueAtTime(800, now);
+        bp.Q.value = 2;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + sound.dur);
+        src.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
+      } else {
+        // Whoosh: swept bandpass filter
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.setValueAtTime(300, now);
+        bp.frequency.exponentialRampToValueAtTime(3000, now + sound.dur * 0.4);
+        bp.frequency.exponentialRampToValueAtTime(600, now + sound.dur);
+        bp.Q.value = 1.5;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.18, now + sound.dur * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + sound.dur);
+        src.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
+      }
+      src.start(now);
+      src.stop(now + sound.dur);
+    } else {
+      // Tonal sounds
+      const spacing = sound.spacing || 0.1;
+      sound.freq.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = sound.wave || "sine";
+        const t0 = now + i * spacing;
+        osc.frequency.setValueAtTime(f, t0);
+        gain.gain.setValueAtTime(0.12, t0);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + sound.dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + sound.dur);
+      });
+    }
   } catch (e) {}
 }
 
@@ -115,6 +157,11 @@ export function getRecurrenceInstances(task, viewDateStr) {
       matches = viewDate.getDate() === origin.getDate() &&
         (viewDate.getFullYear() > origin.getFullYear() ||
          (viewDate.getFullYear() === origin.getFullYear() && viewDate.getMonth() > origin.getMonth()));
+      break;
+    case "yearly":
+      matches = viewDate.getMonth() === origin.getMonth() &&
+        viewDate.getDate() === origin.getDate() &&
+        viewDate.getFullYear() > origin.getFullYear();
       break;
   }
 

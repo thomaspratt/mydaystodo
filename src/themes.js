@@ -45,18 +45,29 @@ export const PRIORITY_CONFIG = {
 };
 
 export const SOUNDS = {
-  pop: { name: "Pop", freq: [600, 900], type: "sine", dur: 0.12 },
-  chime: { name: "Chime", freq: [800, 1200, 1600], type: "sine", dur: 0.3 },
-  ding: { name: "Ding", freq: [1000, 1400], type: "triangle", dur: 0.2 },
-  whoosh: { name: "Whoosh", freq: [200, 800], type: "sawtooth", dur: 0.15 },
-  coin: { name: "Coin", freq: [988, 1319], type: "square", dur: 0.15 },
+  chime: { name: "Chime", type: "tonal", freq: [523, 659, 784], wave: "sine", dur: 0.4, spacing: 0.1 },
+  bell: { name: "Bell", type: "tonal", freq: [880, 1109], wave: "sine", dur: 0.6, spacing: 0.12 },
+  harp: { name: "Harp", type: "tonal", freq: [392, 494, 587, 784], wave: "sine", dur: 0.5, spacing: 0.07 },
+  marimba: { name: "Marimba", type: "tonal", freq: [523, 784], wave: "triangle", dur: 0.25, spacing: 0.1 },
+  windchime: { name: "Wind Chime", type: "tonal", freq: [1047, 1319, 1568, 1760], wave: "sine", dur: 0.7, spacing: 0.15 },
+  raindrop: { name: "Raindrop", type: "tonal", freq: [1200, 800], wave: "sine", dur: 0.35, spacing: 0.12 },
+  whisper: { name: "Whisper", type: "tonal", freq: [440, 554, 659], wave: "triangle", dur: 0.45, spacing: 0.09 },
+  bloom: { name: "Bloom", type: "tonal", freq: [330, 440, 554, 659], wave: "sine", dur: 0.55, spacing: 0.12 },
+  whoosh: { name: "Whoosh", type: "noise", dur: 0.4 },
+  pop: { name: "Pop", type: "noise", dur: 0.08, style: "pop" },
 };
 
 export const ENCOURAGEMENTS = [
-  "Nice work! ✨", "You're on it! 💪", "One down, you got this!",
-  "Crushed it! 🎯", "That felt good, right?", "Look at you go! 🌟",
-  "Momentum! Keep rolling!", "Another one bites the dust 🎶",
-  "Satisfying, isn't it?", "You're making it happen!",
+  "you're seriously so cute","i can't believe you did that! just kidding. i knew you would",
+  "click it again. just for fun. you won't","congratulations. we love you","phew! we were about to have an intervention about that one",
+  "amazing news!","good job! now take two minutes to dance","you're soooo cute","i love when you click me!",
+  "nice! we've just paid you 5 dollars","please don't spam click just to see all the messages :(",
+  "delicious","extravagant","that went swimmingly","wow... you're amazing", "i'm speechless",
+  "you seem like a really cool person","it's so admirable how much you care about people and things",
+  "i just told everyone you did that","that task never stood a chance.","the other tasks are sooo scared",
+  "that was so satisfying i felt it too","you're starting the checkmark renaissance",
+  "very skillful click! you're getting this!","do you take constructive praise?",
+  "all the other todo list apps are getting really jealous. it's a problem"
 ];
 
 export const DEFAULT_CATEGORIES = [
