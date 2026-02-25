@@ -208,13 +208,14 @@ function hslToHexColor(h, s, l) {
 }
 
 // ── Settings Modal ──
-export default function SettingsModal({ theme, setTheme, sound, setSound, categories, setCategories, customThemes, setCustomThemes, allThemes, onClose }) {
+export default function SettingsModal({ theme, setTheme, sound, setSound, categories, setCategories, customThemes, setCustomThemes, allThemes, onClose, onSignOut }) {
   const t = allThemes[theme] || allThemes.sunset;
   const [newCatName, setNewCatName] = useState("");
   const [newCatColor, setNewCatColor] = useState(t.categories[categories.length % t.categories.length]);
   const [creatingTheme, setCreatingTheme] = useState(false);
   const [newThemeName, setNewThemeName] = useState("");
   const [newThemeColor, setNewThemeColor] = useState("#ff6b8a");
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   function addCategory() {
     if (!newCatName.trim() || categories.find((c) => c.name === newCatName.trim())) return;
@@ -227,7 +228,7 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
     const key = `custom_${Date.now()}`;
     const themeObj = generateTheme(newThemeName.trim(), newThemeColor);
     setCustomThemes({ ...customThemes, [key]: themeObj });
-    setTheme(key);
+    setTheme(key, themeObj.categories);
     setNewThemeName("");
     setCreatingTheme(false);
   }
@@ -370,12 +371,42 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <button onClick={() => setConfirmSignOut(true)} style={{
+            padding: "10px 20px", background: "none", border: `1px solid ${t.border}`, borderRadius: 10,
+            color: t.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 600,
+          }}>Sign Out</button>
           <button onClick={onClose} style={{
             padding: "10px 24px", background: t.accent, border: "none", borderRadius: 10,
             color: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700,
           }}>Done</button>
         </div>
+
+        {confirmSignOut && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex",
+            alignItems: "center", justifyContent: "center", zIndex: 600,
+          }} onClick={() => setConfirmSignOut(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14,
+              padding: 24, width: "min(320px, 85vw)", boxShadow: "0 16px 40px rgba(0,0,0,0.4)",
+              animation: "slideUp 0.2s ease",
+            }}>
+              <p style={{ color: t.text, fontSize: 15, fontWeight: 600, fontFamily: "'Nunito', sans-serif", marginBottom: 6 }}>Sign out?</p>
+              <p style={{ color: t.textMuted, fontSize: 13, fontFamily: "'Nunito', sans-serif", marginBottom: 20 }}>Your data is saved and will sync when you sign back in.</p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button onClick={() => setConfirmSignOut(false)} style={{
+                  padding: "8px 18px", background: "none", border: `1px solid ${t.border}`, borderRadius: 8,
+                  color: t.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 600,
+                }}>Cancel</button>
+                <button onClick={onSignOut} style={{
+                  padding: "8px 18px", background: t.accent, border: "none", borderRadius: 8,
+                  color: "#fff", fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700,
+                }}>Sign Out</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

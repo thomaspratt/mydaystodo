@@ -14,9 +14,10 @@ const TASK_ROW_HEIGHT = 18; // ~10px font + 4px padding + 2px gap + 2px border
 const DATE_HEADER_HEIGHT = 24;
 const OVERFLOW_ROW_HEIGHT = 16;
 
-function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, cardProps }) {
+function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
   const cellRef = useRef(null);
   const [maxTasks, setMaxTasks] = useState(3);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (!cellRef.current) return;
@@ -40,14 +41,24 @@ function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDa
       onDragOver={(e) => handleDragOver(e, date)}
       onDragLeave={() => setDragOverDate(null)}
       onDrop={(e) => handleDrop(e, date)}
-      onClick={() => openNewTask(date)}
+      onClick={() => onNavigateToWeek(date)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         background: today ? t.today : t.calBg, borderRadius: 8, padding: 6,
         border: today ? `2px solid ${t.accent}44` : `1px solid ${t.border}`,
         opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer",
-        minWidth: 0, overflow: "hidden",
+        minWidth: 0, overflow: "hidden", position: "relative",
       }}>
       <div style={{ fontSize: 13, fontWeight: today ? 800 : 600, color: today ? t.accent : t.text, marginBottom: 4 }}>{date.getDate()}</div>
+      {hovered && (
+        <button className="month-add-btn" onClick={(e) => { e.stopPropagation(); openNewTask(date); }} style={{
+          position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 6,
+          background: `${t.accent}22`, border: `1px solid ${t.accent}33`, color: t.accent,
+          fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          lineHeight: 1, fontWeight: 300, padding: 0,
+        }}>+</button>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
         {dayTasks.slice(0, visibleCount).map((task) => <TaskCard key={task.id} task={task} inMonthView={true} {...cardProps} />)}
         {hasOverflow && <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, padding: "1px 5px" }}>+{overflow}</div>}
@@ -56,7 +67,7 @@ function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDa
   );
 }
 
-function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, cardProps }) {
+function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
   const numWeeks = Math.ceil(monthDates.length / 7);
   return (
     <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 240px)" }}>
@@ -75,7 +86,7 @@ function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTod
             <MonthDayCell key={dk} date={date} dk={dk} dayTasks={dayTasks} today={today}
               isCurrentMonth={isCurrentMonth} t={t} dragOverDate={dragOverDate}
               handleDragOver={handleDragOver} setDragOverDate={setDragOverDate}
-              handleDrop={handleDrop} openNewTask={openNewTask} cardProps={cardProps} />
+              handleDrop={handleDrop} openNewTask={openNewTask} onNavigateToWeek={onNavigateToWeek} cardProps={cardProps} />
           );
         })}
       </div>
@@ -564,6 +575,7 @@ export default function App({ session }) {
           .nav-left .search-wrap input { width: 100% !important; }
           .header-text { min-width: auto !important; font-size: 14px !important; }
           .legend-row { display: none !important; }
+          .month-add-btn { display: none !important; }
         }
       `}</style>
 
@@ -579,11 +591,6 @@ export default function App({ session }) {
             border: `1px solid ${t.border}`, color: t.textMuted, fontSize: 20,
             cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
           }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-          <button onClick={() => supabase.auth.signOut()} style={{
-            padding: "8px 14px", borderRadius: 12, background: t.surface,
-            border: `1px solid ${t.border}`, color: t.textMuted, fontSize: 12,
-            cursor: "pointer", fontWeight: 600, fontFamily: "'Nunito', sans-serif",
-          }}>Sign Out</button>
         </div>
       </div>
 
@@ -730,6 +737,7 @@ export default function App({ session }) {
           dragOverDate={dragOverDate} handleDragOver={handleDragOver}
           setDragOverDate={setDragOverDate} handleDrop={handleDrop}
           openNewTask={openNewTask} cardProps={cardProps}
+          onNavigateToWeek={(date) => { setCurrentDate(date); setView("week"); }}
         />
       )}
 
@@ -746,7 +754,7 @@ export default function App({ session }) {
 
       {/* Modals */}
       {modalTask && <TaskModal task={modalTask} onSave={saveTask} onRequestDelete={requestDelete} onClose={() => setModalTask(null)} categories={categories} theme={theme} allThemes={allThemes} />}
-      {showSettings && <SettingsModal theme={theme} setTheme={setThemeWithColors} sound={sound} setSound={setSound} categories={categories} setCategories={setCategories} customThemes={customThemes} setCustomThemes={setCustomThemes} allThemes={allThemes} onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal theme={theme} setTheme={setThemeWithColors} sound={sound} setSound={setSound} categories={categories} setCategories={setCategories} customThemes={customThemes} setCustomThemes={setCustomThemes} allThemes={allThemes} onClose={() => setShowSettings(false)} onSignOut={() => supabase.auth.signOut()} />}
       {deleteDialog && <DeleteDialog task={deleteDialog} onDeleteThis={() => deleteThisInstance(deleteDialog)} onDeleteAll={() => deleteAllFuture(deleteDialog)} onClose={() => setDeleteDialog(null)} theme={theme} allThemes={allThemes} />}
       <Toast message={toast.message} visible={toast.visible} />
     </div>
