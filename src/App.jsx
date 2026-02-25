@@ -618,7 +618,7 @@ export default function App({ session }) {
       {/* Week View */}
       {view === "week" ? (
         <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto" }}>
-          <div className="week-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+          <div className="week-grid" style={{ display: "grid", gridTemplateColumns: weekDates.map((d) => getTasksForDate(d).length > 0 ? "minmax(0, 1.5fr)" : "minmax(0, 1fr)").join(" "), gap: 8 }}>
             {weekDates.map((date) => {
               const dk = dateKey(date);
               const dayTasks = getTasksForDate(date);
