@@ -65,9 +65,9 @@ export const ENCOURAGEMENTS = [
   "delicious","extravagant","that went swimmingly","wow... you're amazing", "i'm speechless",
   "you seem like a really cool person","it's so admirable how much you care about people and things",
   "i just told everyone you did that","that task never stood a chance.","the other tasks are sooo scared",
-  "that was so satisfying i felt it too","you're starting the checkmark renaissance",
+  "that was so satisfying i felt it too",
   "very skillful click! you're getting this!","do you take constructive praise?",
-  "all the other todo list apps are getting really jealous. it's a problem"
+  "all the other todo list apps are getting really jealous of your productivity. it's a problem"
 ];
 
 export const DEFAULT_CATEGORIES = [
