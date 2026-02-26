@@ -43,11 +43,15 @@ export function useCloudSync(userId, state, setters) {
       if (error) return
 
       if (data?.data) {
-        const remoteJSON = JSON.stringify(data.data)
-        // Skip applying if remote state matches what we already have
-        if (remoteJSON === lastPulledJSON.current) return
-        lastPulledJSON.current = remoteJSON
+        // Normalize key order to match what push() constructs
         const d = data.data
+        const normalized = JSON.stringify({
+          theme: d.theme, sound: d.sound, view: d.view, tasks: d.tasks,
+          categories: d.categories, customThemes: d.customThemes, categoryColors: d.categoryColors,
+        })
+        // Skip applying if remote state matches what we already have
+        if (normalized === lastPulledJSON.current) return
+        lastPulledJSON.current = normalized
         if (d.theme !== undefined) setTheme(d.theme)
         if (d.sound !== undefined) setSound(d.sound)
         if (d.view !== undefined) setView(d.view)
