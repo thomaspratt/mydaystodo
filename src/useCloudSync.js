@@ -7,7 +7,10 @@ export function useCloudSync(userId, state, setters) {
   const initialPullDone = useRef(false)
   const isPulling = useRef(false)
   const debounceTimer = useRef(null)
+  const stateRef = useRef(state)
   const rowId = `state_${userId}`
+
+  stateRef.current = state
 
   // Push state to Supabase
   const push = useCallback(async (currentState) => {
@@ -36,7 +39,7 @@ export function useCloudSync(userId, state, setters) {
       if (error && error.code === 'PGRST116') {
         // Row doesn't exist — push local state up
         isPulling.current = false
-        await push(state)
+        await push(stateRef.current)
         return
       }
       if (error) { isPulling.current = false; return }
@@ -57,7 +60,7 @@ export function useCloudSync(userId, state, setters) {
     } catch {
       isPulling.current = false
     }
-  }, [rowId, push, state, setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors])
+  }, [rowId, push, setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors])
 
   // Initial pull on mount
   useEffect(() => {
