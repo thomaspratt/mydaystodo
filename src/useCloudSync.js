@@ -5,9 +5,9 @@ export function useCloudSync(userId, state, setters) {
   const { theme, sound, view, tasks, categories, customThemes, categoryColors } = state
   const { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors } = setters
   const initialPullDone = useRef(false)
-  const pullVersion = useRef(0)
   const debounceTimer = useRef(null)
   const stateRef = useRef(state)
+  const lastPulledJSON = useRef(null)
   const rowId = `state_${userId}`
 
   stateRef.current = state
@@ -28,7 +28,6 @@ export function useCloudSync(userId, state, setters) {
 
   // Pull remote state and apply it
   const pull = useCallback(async () => {
-    pullVersion.current++
     try {
       const { data, error } = await supabase
         .from('tasks')
@@ -44,6 +43,10 @@ export function useCloudSync(userId, state, setters) {
       if (error) return
 
       if (data?.data) {
+        const remoteJSON = JSON.stringify(data.data)
+        // Skip applying if remote state matches what we already have
+        if (remoteJSON === lastPulledJSON.current) return
+        lastPulledJSON.current = remoteJSON
         const d = data.data
         if (d.theme !== undefined) setTheme(d.theme)
         if (d.sound !== undefined) setSound(d.sound)
@@ -66,13 +69,13 @@ export function useCloudSync(userId, state, setters) {
   // Debounced push on state change
   useEffect(() => {
     if (!initialPullDone.current) return
-    const versionAtSchedule = pullVersion.current
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
-      // If a pull happened since this push was scheduled, skip it —
-      // the state change was from the pull, not a local edit
-      if (pullVersion.current !== versionAtSchedule) return
-      push({ theme, sound, view, tasks, categories, customThemes, categoryColors })
+      const current = { theme, sound, view, tasks, categories, customThemes, categoryColors }
+      // Don't push if state matches what we last pulled — it's just an echo
+      if (JSON.stringify(current) === lastPulledJSON.current) return
+      push(current)
+      lastPulledJSON.current = JSON.stringify(current)
     }, 1500)
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
   }, [theme, sound, view, tasks, categories, customThemes, categoryColors, push])
@@ -88,7 +91,7 @@ export function useCloudSync(userId, state, setters) {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [pull])
 
-  // Poll for remote changes every 15s so simultaneously open devices stay in sync
+  // Poll for remote changes so simultaneously open devices stay in sync
   useEffect(() => {
     const interval = setInterval(() => {
       if (initialPullDone.current) pull()
