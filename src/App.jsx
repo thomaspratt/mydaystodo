@@ -10,51 +10,30 @@ import TaskModal from "./TaskModal";
 import SettingsModal from "./SettingsModal";
 import DeleteDialog from "./DeleteDialog";
 
-const TASK_ROW_HEIGHT = 18; // ~10px font + 4px padding + 2px gap + 2px border
-const DATE_HEADER_HEIGHT = 24;
-const OVERFLOW_ROW_HEIGHT = 16;
-
 function blendHex(a, b, f) {
   const p = (h, o) => parseInt(h.slice(o, o + 2), 16);
   const m = (x, y) => Math.round(x + (y - x) * f).toString(16).padStart(2, "0");
   return `#${m(p(a,1),p(b,1))}${m(p(a,3),p(b,3))}${m(p(a,5),p(b,5))}`;
 }
 
-function MonthDayCell({ date, dk, dayTasks, today, isSelected, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
-  const cellRef = useRef(null);
-  const [maxTasks, setMaxTasks] = useState(3);
+function MonthDayCell({ date, dk, dayTasks, today, isSelected, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onDayClick, isMobile, cardProps }) {
   const [hovered, setHovered] = useState(false);
 
-  useEffect(() => {
-    if (!cellRef.current) return;
-    const obs = new ResizeObserver(([entry]) => {
-      const h = entry.contentBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-      const available = h - DATE_HEADER_HEIGHT;
-      const fits = Math.floor(available / TASK_ROW_HEIGHT);
-      setMaxTasks(Math.max(1, fits));
-    });
-    obs.observe(cellRef.current);
-    return () => obs.disconnect();
-  }, []);
-
-  const hasOverflow = dayTasks.length > maxTasks;
-  const visibleCount = hasOverflow ? Math.max(1, maxTasks - 1) : maxTasks;
-  const overflow = dayTasks.length - visibleCount;
-
   return (
-    <div ref={cellRef}
+    <div
       className={`day-card${dragOverDate === dk ? " drop-target" : ""}`}
       onDragOver={(e) => handleDragOver(e, date)}
       onDragLeave={() => setDragOverDate(null)}
       onDrop={(e) => handleDrop(e, date)}
-      onClick={() => onNavigateToWeek(date)}
+      onClick={() => onDayClick(date)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         background: today ? t.today : isSelected ? blendHex(t.calBg, t.today, 0.5) : t.calBg, borderRadius: 8, padding: 6,
         border: today ? `2px solid ${t.accent}44` : isSelected ? `1px solid ${t.accent}30` : `1px solid ${t.border}`,
         opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer",
-        minWidth: 0, overflow: "hidden", position: "relative",
+        minWidth: 0, minHeight: 0, overflow: "hidden", position: "relative",
+        display: "flex", flexDirection: "column",
       }}>
       <div style={{ fontSize: 13, fontWeight: today ? 800 : isSelected ? 700 : 600, color: today ? t.accent : isSelected ? `${t.accent}bb` : t.text, marginBottom: 4 }}>{date.getDate()}</div>
       {hovered && (
@@ -65,24 +44,23 @@ function MonthDayCell({ date, dk, dayTasks, today, isSelected, isCurrentMonth, t
           lineHeight: 1, fontWeight: 300, padding: 0,
         }}>+</button>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-        {dayTasks.slice(0, visibleCount).map((task) => <TaskCard key={task.id} task={task} inMonthView={true} {...cardProps} />)}
-        {hasOverflow && <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, padding: "1px 5px" }}>+{overflow}</div>}
+      <div className="month-day-tasks" style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1, minHeight: 0, overflowY: "auto" }}>
+        {dayTasks.map((task) => <TaskCard key={task.id} task={task} inMonthView={true} disableInteraction={isMobile} {...cardProps} />)}
       </div>
     </div>
   );
 }
 
-function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, selectedDateKey, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
+function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, selectedDateKey, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onDayClick, isMobile, cardProps }) {
   const numWeeks = Math.ceil(monthDates.length / 7);
   return (
-    <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 240px)" }}>
+    <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", height: "calc(100vh - 240px)" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
         {DAY_NAMES.map((d) => (
           <div key={d} style={{ textAlign: "center", fontSize: 11, color: t.textMuted, fontWeight: 600, padding: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{d}</div>
         ))}
       </div>
-      <div className="month-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gridTemplateRows: `repeat(${numWeeks}, 1fr)`, gap: 2, flex: 1 }}>
+      <div className="month-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gridTemplateRows: `repeat(${numWeeks}, minmax(0, 1fr))`, gap: 2, flex: 1, minHeight: 0, overflow: "hidden" }}>
         {monthDates.map((date) => {
           const dk = dateKey(date);
           const dayTasks = getTasksForDate(date);
@@ -93,7 +71,7 @@ function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTod
             <MonthDayCell key={dk} date={date} dk={dk} dayTasks={dayTasks} today={today}
               isSelected={isSelected} isCurrentMonth={isCurrentMonth} t={t} dragOverDate={dragOverDate}
               handleDragOver={handleDragOver} setDragOverDate={setDragOverDate}
-              handleDrop={handleDrop} openNewTask={openNewTask} onNavigateToWeek={onNavigateToWeek} cardProps={cardProps} />
+              handleDrop={handleDrop} openNewTask={openNewTask} onDayClick={onDayClick} isMobile={isMobile} cardProps={cardProps} />
           );
         })}
       </div>
@@ -127,6 +105,15 @@ export default function App({ session }) {
   const searchRef = useRef(null);
   const lastCategoryRef = useRef(null);
   const [lastNavDate, setLastNavDate] = useState(null);
+  const [dayDetailDate, setDayDetailDate] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 768px)").matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 768px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   const allThemes = useMemo(() => ({ ...THEMES, ...customThemes }), [customThemes]);
   const t = allThemes[theme] || allThemes.sunset;
@@ -231,13 +218,26 @@ export default function App({ session }) {
       if (modalTask || showSettings) return;
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "Escape") { e.preventDefault(); setCurrentDate(new Date()); setLastNavDate(null); }
-      else if (e.key === "Tab") { e.preventDefault(); setView((v) => v === "week" ? "month" : "week"); }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (dayDetailDate) { setDayDetailDate(null); }
+        else { setCurrentDate(new Date()); setLastNavDate(null); }
+        return;
+      }
+
+      if (dayDetailDate) {
+        if ((e.key === "+" || e.key === "=") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault(); openNewTask(dayDetailDate);
+        }
+        return;
+      }
+
+      if (e.key === "Tab") { e.preventDefault(); setView((v) => v === "week" ? "month" : "week"); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); navigateWeek(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); navigateWeek(1); }
       else if ((e.key === "+" || e.key === "=") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        // Pick the best date for the new task
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const wd = getWeekDates(currentDate);
@@ -654,6 +654,8 @@ export default function App({ session }) {
         @keyframes checkPop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
         @keyframes taskComplete { 0% { transform: scale(1); } 30% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 0.7; } }
         .drop-target { outline: 2px dashed ${t.accent}88 !important; outline-offset: -2px; background: ${t.accent}0a !important; }
+        .month-day-tasks::-webkit-scrollbar { display: none; }
+        .month-day-tasks { scrollbar-width: none; }
         @media (max-width: 768px) {
           .week-grid { grid-template-columns: 1fr !important; gap: 6px !important; }
           .week-grid .day-card { min-height: auto !important; padding: 10px !important; }
@@ -705,7 +707,11 @@ export default function App({ session }) {
                 onBlur={() => setTimeout(() => { setSearchFocused(false); setSearchHL(-1); }, 200)}
                 onKeyDown={(e) => {
                   const max = Math.min(searchResults.length, 6);
-                  if (e.key === "Escape") { setSearchQuery(""); setSearchFocused(false); setSearchHL(-1); searchRef.current?.blur(); }
+                  if ((e.key === "+" || e.key === "=") && !searchQuery && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    e.preventDefault(); searchRef.current?.blur(); setSearchFocused(false);
+                    openNewTask(new Date());
+                  }
+                  else if (e.key === "Escape") { setSearchQuery(""); setSearchFocused(false); setSearchHL(-1); searchRef.current?.blur(); }
                   else if (e.key === "ArrowDown" && max > 0) { e.preventDefault(); setSearchHL((prev) => (prev + 1) % max); }
                   else if (e.key === "ArrowUp" && max > 0) { e.preventDefault(); setSearchHL((prev) => (prev <= 0 ? max - 1 : prev - 1)); }
                   else if (e.key === "Enter" && max > 0) { handleSearchSelect(searchResults[searchHL >= 0 ? searchHL : 0]); setSearchHL(-1); }
@@ -832,8 +838,8 @@ export default function App({ session }) {
           selectedDateKey={selectedDateKey}
           dragOverDate={dragOverDate} handleDragOver={handleDragOver}
           setDragOverDate={setDragOverDate} handleDrop={handleDrop}
-          openNewTask={openNewTask} cardProps={cardProps}
-          onNavigateToWeek={(date) => { setCurrentDate(date); setView("week"); }}
+          openNewTask={openNewTask} isMobile={isMobile} cardProps={cardProps}
+          onDayClick={(date) => { setLastNavDate(date); setDayDetailDate(date); }}
         />
       )}
 
@@ -847,6 +853,44 @@ export default function App({ session }) {
         onMouseEnter={(e) => e.target.style.transform = "scale(1.1)"}
         onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
       >+</button>
+
+      {/* Day Detail Overlay */}
+      {dayDetailDate && (
+        <div onClick={() => setDayDetailDate(null)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+          zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "fadeIn 0.15s ease",
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: "min(420px, 92vw)", maxHeight: "80vh", overflowY: "auto",
+            background: t.surface, border: `1px solid ${t.border}`, borderRadius: 16,
+            boxShadow: `0 12px 40px rgba(0,0,0,0.4)`, animation: "slideUp 0.2s ease",
+          }}>
+            <div style={{
+              padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              borderBottom: `1px solid ${t.border}`,
+            }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: `${t.accent}bb` }}>
+                {DAY_NAMES[dayDetailDate.getDay()]} {dayDetailDate.getDate()} {MONTH_NAMES[dayDetailDate.getMonth()]}
+              </span>
+              <button onClick={() => openNewTask(dayDetailDate)} style={{
+                width: 30, height: 30, borderRadius: 8, background: `${t.accent}22`, border: `1px solid ${t.accent}33`,
+                color: t.accent, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                lineHeight: 1, fontWeight: 300, padding: 0,
+              }}>+</button>
+            </div>
+            <div style={{ padding: "12px 20px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
+              {getTasksForDate(dayDetailDate).length === 0 ? (
+                <div style={{ padding: "24px 0", textAlign: "center", color: t.textMuted, fontSize: 14, fontWeight: 500 }}>No tasks yet</div>
+              ) : (
+                getTasksForDate(dayDetailDate).map((task) => (
+                  <TaskCard key={task.id} task={task} inMonthView={false} {...cardProps} />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {modalTask && <TaskModal task={modalTask} onSave={saveTask} onRequestDelete={requestDelete} onClose={() => setModalTask(null)} categories={categories} theme={theme} allThemes={allThemes} />}

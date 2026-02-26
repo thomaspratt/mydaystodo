@@ -98,7 +98,7 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
         })()}
 
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs doing?" onKeyDown={(e) => e.key === "Enter" && handleSave()}
+          placeholder="What needs doing?" onKeyDown={(e) => { if (e.key === "Enter") handleSave(); else if ((e.key === "Backspace" || e.key === "Delete") && !title) { e.preventDefault(); onClose(); } }}
           style={{ ...inputStyle, padding: "12px 16px", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }}
         />
 

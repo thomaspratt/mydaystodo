@@ -3,7 +3,7 @@ import { parseDate } from "./utils";
 import { Confetti } from "./Toast";
 
 export default function TaskCard({
-  task, inMonthView, theme, allThemes, categories,
+  task, inMonthView, disableInteraction, theme, allThemes, categories,
   confettiTask, onToggleComplete, onEdit, onDragStart,
 }) {
   const t = (allThemes || THEMES)[theme] || THEMES.sunset;
@@ -13,9 +13,9 @@ export default function TaskCard({
   if (inMonthView) {
     return (
       <div
-        draggable
-        onDragStart={(e) => onDragStart(e, task)}
-        onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+        draggable={!disableInteraction}
+        onDragStart={disableInteraction ? undefined : (e) => onDragStart(e, task)}
+        onClick={disableInteraction ? undefined : (e) => { e.stopPropagation(); onEdit(task); }}
         style={{
           fontSize: 10, padding: "2px 5px", borderRadius: 4,
           background: task.isRecurrenceInstance ? `${catColor}18` : `${catColor}33`,
@@ -24,7 +24,8 @@ export default function TaskCard({
           overflow: "hidden", whiteSpace: "nowrap",
           borderLeft: `2px ${task.isRecurrenceInstance ? "dashed" : "solid"} ${catColor}`,
           opacity: task.completed ? 0.5 : (task.isRecurrenceInstance ? 0.6 : 1),
-          cursor: "grab", minWidth: 0,
+          cursor: disableInteraction ? "pointer" : "grab", minWidth: 0, flexShrink: 0,
+          pointerEvents: disableInteraction ? "none" : undefined,
           maskImage: "linear-gradient(to right, black 60%, transparent 100%)",
           WebkitMaskImage: "linear-gradient(to right, black 60%, transparent 100%)",
         }}
