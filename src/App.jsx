@@ -14,7 +14,13 @@ const TASK_ROW_HEIGHT = 18; // ~10px font + 4px padding + 2px gap + 2px border
 const DATE_HEADER_HEIGHT = 24;
 const OVERFLOW_ROW_HEIGHT = 16;
 
-function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
+function blendHex(a, b, f) {
+  const p = (h, o) => parseInt(h.slice(o, o + 2), 16);
+  const m = (x, y) => Math.round(x + (y - x) * f).toString(16).padStart(2, "0");
+  return `#${m(p(a,1),p(b,1))}${m(p(a,3),p(b,3))}${m(p(a,5),p(b,5))}`;
+}
+
+function MonthDayCell({ date, dk, dayTasks, today, isSelected, isCurrentMonth, t, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
   const cellRef = useRef(null);
   const [maxTasks, setMaxTasks] = useState(3);
   const [hovered, setHovered] = useState(false);
@@ -45,12 +51,12 @@ function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDa
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: today ? t.today : t.calBg, borderRadius: 8, padding: 6,
-        border: today ? `2px solid ${t.accent}44` : `1px solid ${t.border}`,
+        background: today ? t.today : isSelected ? blendHex(t.calBg, t.today, 0.5) : t.calBg, borderRadius: 8, padding: 6,
+        border: today ? `2px solid ${t.accent}44` : isSelected ? `1px solid ${t.accent}30` : `1px solid ${t.border}`,
         opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer",
         minWidth: 0, overflow: "hidden", position: "relative",
       }}>
-      <div style={{ fontSize: 13, fontWeight: today ? 800 : 600, color: today ? t.accent : t.text, marginBottom: 4 }}>{date.getDate()}</div>
+      <div style={{ fontSize: 13, fontWeight: today ? 800 : isSelected ? 700 : 600, color: today ? t.accent : isSelected ? `${t.accent}bb` : t.text, marginBottom: 4 }}>{date.getDate()}</div>
       {hovered && (
         <button className="month-add-btn" onClick={(e) => { e.stopPropagation(); openNewTask(date); }} style={{
           position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 6,
@@ -67,7 +73,7 @@ function MonthDayCell({ date, dk, dayTasks, today, isCurrentMonth, t, dragOverDa
   );
 }
 
-function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
+function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTodayFn, selectedDateKey, dragOverDate, handleDragOver, setDragOverDate, handleDrop, openNewTask, onNavigateToWeek, cardProps }) {
   const numWeeks = Math.ceil(monthDates.length / 7);
   return (
     <div style={{ padding: "0 24px 24px", maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 240px)" }}>
@@ -82,9 +88,10 @@ function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTod
           const dayTasks = getTasksForDate(date);
           const today = isTodayFn(date);
           const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+          const isSelected = !today && dk === selectedDateKey;
           return (
             <MonthDayCell key={dk} date={date} dk={dk} dayTasks={dayTasks} today={today}
-              isCurrentMonth={isCurrentMonth} t={t} dragOverDate={dragOverDate}
+              isSelected={isSelected} isCurrentMonth={isCurrentMonth} t={t} dragOverDate={dragOverDate}
               handleDragOver={handleDragOver} setDragOverDate={setDragOverDate}
               handleDrop={handleDrop} openNewTask={openNewTask} onNavigateToWeek={onNavigateToWeek} cardProps={cardProps} />
           );
@@ -119,6 +126,7 @@ export default function App({ session }) {
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef(null);
   const lastCategoryRef = useRef(null);
+  const [lastNavDate, setLastNavDate] = useState(null);
 
   const allThemes = useMemo(() => ({ ...THEMES, ...customThemes }), [customThemes]);
   const t = allThemes[theme] || allThemes.sunset;
@@ -223,10 +231,28 @@ export default function App({ session }) {
       if (modalTask || showSettings) return;
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "Escape") { e.preventDefault(); setCurrentDate(new Date()); }
+      if (e.key === "Escape") { e.preventDefault(); setCurrentDate(new Date()); setLastNavDate(null); }
       else if (e.key === "Tab") { e.preventDefault(); setView((v) => v === "week" ? "month" : "week"); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); navigateWeek(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); navigateWeek(1); }
+      else if ((e.key === "+" || e.key === "=") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        // Pick the best date for the new task
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const wd = getWeekDates(currentDate);
+        const md = getMonthDates(currentDate);
+        const isInView = (d) => {
+          const dk = dateKey(d);
+          if (view === "week") return wd.some((w) => dateKey(w) === dk);
+          return md.some((m) => dateKey(m) === dk && m.getMonth() === currentDate.getMonth());
+        };
+        let taskDate = null;
+        if (lastNavDate && isInView(lastNavDate)) taskDate = lastNavDate;
+        else if (isInView(today)) taskDate = today;
+        else taskDate = view === "week" ? wd[0] : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        openNewTask(taskDate);
+      }
       else if (e.key.length === 1 && /[a-zA-Z0-9\/]/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
         searchRef.current?.focus();
       }
@@ -282,10 +308,13 @@ export default function App({ session }) {
   // ── Task CRUD ──
   function openNewTask(date) {
     const defaultCat = lastCategoryRef.current || categories[0]?.name || "";
+    setLastNavDate(date);
     setModalTask({ isNew: true, date: dateKey(date), title: "", category: defaultCat, priority: "none", recurrence: null, subtasks: [] });
   }
 
   function openEditTask(task) {
+    const taskDate = task.isRecurrenceInstance ? task.date : task.date;
+    setLastNavDate(parseDate(taskDate));
     if (task.isRecurrenceInstance) {
       const original = tasks.find((tt) => tt.id === task.originalId);
       if (original) setModalTask({ ...original, _clickedInstanceDate: task.date });
@@ -423,6 +452,13 @@ export default function App({ session }) {
     const q = searchQuery.trim();
     if (!q) return [];
     const qLower = q.toLowerCase();
+
+    // 0. "today" / "td" match
+    if (qLower === "today" || qLower === "toda" || qLower === "td") {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      return [{ type: "date", label: `Go to Today`, date: now }];
+    }
 
     // 1. Month match
     let monthIdx = MONTH_FULL.indexOf(qLower);
@@ -570,12 +606,15 @@ export default function App({ session }) {
     if (result.type === "month") {
       setView("month");
       setCurrentDate(new Date(result.year, result.monthIdx, 1));
+      setLastNavDate(new Date(result.year, result.monthIdx, 1));
     } else if (result.type === "date") {
       setView("week");
       setCurrentDate(result.date);
+      setLastNavDate(result.date);
     } else {
       setView("week");
       setCurrentDate(result.date);
+      setLastNavDate(result.date);
     }
     setSearchQuery("");
     setSearchFocused(false);
@@ -583,6 +622,7 @@ export default function App({ session }) {
   }
 
   // ── Calendar data ──
+  const selectedDateKey = lastNavDate && !isToday(lastNavDate) ? dateKey(lastNavDate) : null;
   const weekDates = getWeekDates(currentDate);
   const monthDates = getMonthDates(currentDate);
   const shortMonth = (i) => { const n = MONTH_NAMES[i]; return (n === "June" || n === "July") ? n : n.slice(0, 3); };
@@ -650,7 +690,7 @@ export default function App({ session }) {
           <button onClick={() => navigateWeek(-1)} style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: `1px solid ${t.border}`, color: t.textMuted, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
           <span className="header-text" style={{ fontSize: 16, fontWeight: 700, minWidth: 220, textAlign: "center", color: t.text }}>{headerText}</span>
           <button onClick={() => navigateWeek(1)} style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: `1px solid ${t.border}`, color: t.textMuted, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
-          <button onClick={() => setCurrentDate(new Date())} style={{ padding: "6px 14px", borderRadius: 20, background: `${t.accent}22`, border: `1px solid ${t.accent}44`, color: t.accent, fontSize: 12, cursor: "pointer", fontWeight: 700, fontFamily: "'Nunito', sans-serif" }}>Today</button>
+          <button onClick={() => { setCurrentDate(new Date()); setLastNavDate(null); }} style={{ padding: "6px 14px", borderRadius: 20, background: `${t.accent}22`, border: `1px solid ${t.accent}44`, color: t.accent, fontSize: 12, cursor: "pointer", fontWeight: 700, fontFamily: "'Nunito', sans-serif" }}>Today</button>
           {/* Search Bar */}
           <div className="search-wrap" style={{ position: "relative" }}>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
@@ -752,6 +792,7 @@ export default function App({ session }) {
               const dk = dateKey(date);
               const dayTasks = getTasksForDate(date);
               const today = isToday(date);
+              const selected = !today && dk === selectedDateKey;
               return (
                 <div key={dk}
                   className={`day-card${dragOverDate === dk ? " drop-target" : ""}`}
@@ -759,15 +800,15 @@ export default function App({ session }) {
                   onDragLeave={() => setDragOverDate(null)}
                   onDrop={(e) => handleDrop(e, date)}
                   style={{
-                    background: today ? t.today : t.calBg, borderRadius: 14, padding: 12, minHeight: 200,
-                    border: today ? `2px solid ${t.accent}44` : `1px solid ${t.border}`,
+                    background: today ? t.today : selected ? blendHex(t.calBg, t.today, 0.5) : t.calBg, borderRadius: 14, padding: 12, minHeight: 200,
+                    border: today ? `2px solid ${t.accent}44` : selected ? `1px solid ${t.accent}30` : `1px solid ${t.border}`,
                     transition: "all 0.2s ease", display: "flex", flexDirection: "column",
                     minWidth: 0, overflow: "hidden",
                   }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div>
                       <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{DAY_NAMES[date.getDay()]}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: today ? t.accent : t.text, lineHeight: 1.1 }}>{date.getDate()}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: today ? t.accent : selected ? `${t.accent}bb` : t.text, lineHeight: 1.1 }}>{date.getDate()}</div>
                     </div>
                     <button onClick={() => openNewTask(date)} style={{
                       width: 26, height: 26, borderRadius: 8, background: `${t.accent}22`, border: `1px solid ${t.accent}33`,
@@ -788,6 +829,7 @@ export default function App({ session }) {
         <MonthGrid
           monthDates={monthDates} currentDate={currentDate} t={t}
           getTasksForDate={getTasksForDate} isToday={isToday}
+          selectedDateKey={selectedDateKey}
           dragOverDate={dragOverDate} handleDragOver={handleDragOver}
           setDragOverDate={setDragOverDate} handleDrop={handleDrop}
           openNewTask={openNewTask} cardProps={cardProps}

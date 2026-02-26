@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { THEMES, PRIORITY_CONFIG } from "./themes";
 import { parseDate, dateKey, generateId } from "./utils";
+import { MONTH_NAMES } from "./themes";
 
 export default function TaskModal({ task, onSave, onRequestDelete, onClose, categories, theme, allThemes }) {
   const t = (allThemes || THEMES)[theme] || THEMES.sunset;
@@ -82,9 +83,19 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
         border: `1px solid ${t.border}`, boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
         animation: "slideUp 0.25s ease",
       }}>
-        <h3 style={{ color: t.text, margin: "0 0 20px", fontFamily: "'Nunito', sans-serif", fontSize: 20, fontWeight: 700 }}>
+        <h3 style={{ color: t.text, margin: "0 0 4px", fontFamily: "'Nunito', sans-serif", fontSize: 20, fontWeight: 700 }}>
           {isEdit ? "Edit Task" : "New Task"}
         </h3>
+        {(() => {
+          const d = parseDate(task?.date || dateKey(new Date()));
+          const dayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+          const monAbbr = MONTH_NAMES[d.getMonth()].slice(0, 3);
+          return (
+            <div style={{ color: `${t.accent}bb`, fontSize: 13, fontWeight: 600, fontFamily: "'Nunito', sans-serif", marginBottom: 16 }}>
+              {dayAbbr} {monAbbr} {d.getDate()}
+            </div>
+          );
+        })()}
 
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
           placeholder="What needs doing?" onKeyDown={(e) => e.key === "Enter" && handleSave()}

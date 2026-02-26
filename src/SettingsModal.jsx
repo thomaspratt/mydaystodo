@@ -216,6 +216,7 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
   const [newThemeName, setNewThemeName] = useState("");
   const [newThemeColor, setNewThemeColor] = useState("#ff6b8a");
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   function addCategory() {
     if (!newCatName.trim() || categories.find((c) => c.name === newCatName.trim())) return;
@@ -389,11 +390,54 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
             padding: "10px 20px", background: "none", border: `1px solid ${t.border}`, borderRadius: 10,
             color: t.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 600,
           }}>Sign Out</button>
+          <button onClick={() => setShowShortcuts(true)} style={{
+            padding: "10px 20px", background: "none", border: `1px solid ${t.border}`, borderRadius: 10,
+            color: t.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 600,
+          }}>Shortcuts</button>
           <button onClick={onClose} style={{
             padding: "10px 24px", background: t.accent, border: "none", borderRadius: 10,
             color: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700,
           }}>Done</button>
         </div>
+
+        {showShortcuts && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex",
+            alignItems: "center", justifyContent: "center", zIndex: 600,
+          }} onClick={() => setShowShortcuts(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14,
+              padding: 24, width: "min(340px, 85vw)", boxShadow: "0 16px 40px rgba(0,0,0,0.4)",
+              animation: "slideUp 0.2s ease",
+            }}>
+              <p style={{ color: t.text, fontSize: 15, fontWeight: 700, fontFamily: "'Nunito', sans-serif", marginBottom: 16 }}>Keyboard Shortcuts</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  ["Left / Right", "Navigate week or month"],
+                  ["Tab", "Toggle week / month view"],
+                  ["Escape", "Go to today"],
+                  ["+ or =", "New task"],
+                  ["Letters / digits", "Search"],
+                ].map(([key, action]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{
+                      background: t.bg, border: `1px solid ${t.border}`, borderRadius: 6,
+                      padding: "3px 8px", fontSize: 12, fontWeight: 700, color: t.text,
+                      fontFamily: "'Nunito', sans-serif", whiteSpace: "nowrap", minWidth: 90, textAlign: "center",
+                    }}>{key}</span>
+                    <span style={{ fontSize: 13, color: t.textMuted, fontFamily: "'Nunito', sans-serif" }}>{action}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                <button onClick={() => setShowShortcuts(false)} style={{
+                  padding: "8px 18px", background: t.accent, border: "none", borderRadius: 8,
+                  color: "#fff", fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700,
+                }}>Done</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {confirmSignOut && (
           <div style={{
