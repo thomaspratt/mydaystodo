@@ -1,0 +1,2 @@
+Planned features:
+- Ok, make the day detail for when you click on a day in month view. Just shows tasks for the day, highlights the day (with lastNavDate reference and the works), and allows you to see all the tasks in the day in full and make or edit tasks in the day. You can hit escape or click outside the detail to go right back to month view. Just fixes the annoyance of being kicked out to week view when you're in month view.
