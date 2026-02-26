@@ -363,6 +363,19 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
               onKeyDown={(e) => e.key === "Enter" && addCategory()}
               style={{ flex: 1, padding: "8px 12px", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, fontSize: 13, outline: "none", fontFamily: "'Nunito', sans-serif" }}
             />
+            <button onClick={() => {
+              const idx = categories.length;
+              if (idx < t.categories.length) {
+                setNewCatColor(t.categories[idx]);
+              } else {
+                const h = Math.floor(Math.random() * 360);
+                setNewCatColor(hslToHexColor(h, 55 + Math.random() * 20, 55 + Math.random() * 15));
+              }
+            }} style={{
+              padding: "6px 10px", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8,
+              color: t.textMuted, fontSize: 11, cursor: "pointer", fontWeight: 700, fontFamily: "'Nunito', sans-serif",
+              whiteSpace: "nowrap",
+            }}>Theme</button>
             <ColorPicker value={newCatColor} onChange={setNewCatColor} theme={t} />
             <button onClick={addCategory} style={{
               padding: "8px 14px", background: t.accent, border: "none", borderRadius: 8,

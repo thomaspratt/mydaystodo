@@ -217,6 +217,24 @@ export default function App({ session }) {
     setCurrentDate(d);
   }
 
+  // ── Arrow key navigation ──
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (modalTask || showSettings) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "Escape") { e.preventDefault(); setCurrentDate(new Date()); }
+      else if (e.key === "Tab") { e.preventDefault(); setView((v) => v === "week" ? "month" : "week"); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); navigateWeek(-1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); navigateWeek(1); }
+      else if (e.key.length === 1 && /[a-zA-Z0-9\/]/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        searchRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  });
+
   // ── Get tasks for a date ──
   function getTasksForDate(d) {
     const dk = dateKey(d);
@@ -397,6 +415,9 @@ export default function App({ session }) {
   // ── Search logic ──
   const MONTH_FULL = ["january","february","march","april","may","june","july","august","september","october","november","december"];
   const MONTH_ABBR = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const DAY_FULL = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  const DAY_ABBR = ["sun","mon","tue","wed","thu","fri","sat"];
+  const [searchHL, setSearchHL] = useState(-1);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim();
@@ -440,6 +461,35 @@ export default function App({ session }) {
           const label = `Go to ${MONTH_NAMES[mIdx]} ${d}, ${y}`;
           return [{ type: "date", label, date }];
         }
+      }
+    }
+
+    // 2b. Day-of-week match: "tue", "tuesday", "next tue", "next tuesday"
+    const dayMatch = qLower.match(/^(next\s+)?([a-z]+)$/);
+    if (dayMatch) {
+      const prefix = dayMatch[1]; // "next " or undefined
+      const dayName = dayMatch[2];
+      let dayIdx = DAY_FULL.indexOf(dayName);
+      if (dayIdx === -1) dayIdx = DAY_ABBR.indexOf(dayName);
+      if (dayIdx !== -1) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // Find the nearest future occurrence of this weekday
+        let diff = (dayIdx - today.getDay() + 7) % 7;
+        if (diff === 0) diff = 7; // always go to next occurrence, not today
+        if (prefix) diff += 7; // "next" skips one more week
+        const results = [];
+        for (let i = 0; i < 4; i++) {
+          const d = new Date(today);
+          d.setDate(d.getDate() + diff + i * 7);
+          const dayStr = DAY_FULL[dayIdx].charAt(0).toUpperCase() + DAY_FULL[dayIdx].slice(1);
+          results.push({
+            type: "date",
+            label: `Go to ${dayStr}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`,
+            date: d,
+          });
+        }
+        return results;
       }
     }
 
@@ -610,12 +660,15 @@ export default function App({ session }) {
                 type="text"
                 placeholder="Search dates or tasks..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchHL(-1); }}
                 onFocus={() => setSearchFocused(true)}
-                onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                onBlur={() => setTimeout(() => { setSearchFocused(false); setSearchHL(-1); }, 200)}
                 onKeyDown={(e) => {
-                  if (e.key === "Escape") { setSearchQuery(""); setSearchFocused(false); searchRef.current?.blur(); }
-                  if (e.key === "Enter" && searchResults.length > 0) { handleSearchSelect(searchResults[0]); }
+                  const max = Math.min(searchResults.length, 6);
+                  if (e.key === "Escape") { setSearchQuery(""); setSearchFocused(false); setSearchHL(-1); searchRef.current?.blur(); }
+                  else if (e.key === "ArrowDown" && max > 0) { e.preventDefault(); setSearchHL((prev) => (prev + 1) % max); }
+                  else if (e.key === "ArrowUp" && max > 0) { e.preventDefault(); setSearchHL((prev) => (prev <= 0 ? max - 1 : prev - 1)); }
+                  else if (e.key === "Enter" && max > 0) { handleSearchSelect(searchResults[searchHL >= 0 ? searchHL : 0]); setSearchHL(-1); }
                 }}
                 style={{
                   width: 200, padding: "6px 12px 6px 32px", borderRadius: 10,
@@ -635,13 +688,14 @@ export default function App({ session }) {
               }}>
                 {searchResults.slice(0, 6).map((result, i) => (
                   <div key={i}
-                    onMouseDown={(e) => { e.preventDefault(); handleSearchSelect(result); }}
+                    onMouseDown={(e) => { e.preventDefault(); handleSearchSelect(result); setSearchHL(-1); }}
+                    onMouseEnter={() => setSearchHL(i)}
+                    onMouseLeave={() => setSearchHL(-1)}
                     style={{
                       padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
                       transition: "background 0.1s ease", fontSize: 13, fontWeight: 500,
+                      background: searchHL === i ? `${t.accent}15` : "transparent",
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = `${t.accent}15`}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                   >
                     {result.type === "task" ? (
                       <>
