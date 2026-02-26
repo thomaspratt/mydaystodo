@@ -5,39 +5,9 @@ export function useCloudSync(userId, state, setters) {
   const { theme, sound, view, tasks, categories, customThemes, categoryColors } = state
   const { setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors } = setters
   const initialPullDone = useRef(false)
+  const isPulling = useRef(false)
   const debounceTimer = useRef(null)
   const rowId = `state_${userId}`
-
-  // Pull remote state and apply it
-  const pull = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('data')
-        .eq('id', rowId)
-        .single()
-
-      if (error && error.code === 'PGRST116') {
-        // Row doesn't exist — push local state up
-        await push(state)
-        return
-      }
-      if (error) return
-
-      if (data?.data) {
-        const d = data.data
-        if (d.theme !== undefined) setTheme(d.theme)
-        if (d.sound !== undefined) setSound(d.sound)
-        if (d.view !== undefined) setView(d.view)
-        if (d.tasks !== undefined) setTasks(d.tasks)
-        if (d.categories !== undefined) setCategories(d.categories)
-        if (d.customThemes !== undefined) setCustomThemes(d.customThemes)
-        if (d.categoryColors !== undefined && d.categoryColors._v >= 2) setCategoryColors(d.categoryColors)
-      }
-    } catch {
-      // Network error — silently ignore
-    }
-  }, [rowId])
 
   // Push state to Supabase
   const push = useCallback(async (currentState) => {
@@ -53,6 +23,42 @@ export function useCloudSync(userId, state, setters) {
     }
   }, [rowId, userId])
 
+  // Pull remote state and apply it
+  const pull = useCallback(async () => {
+    isPulling.current = true
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('data')
+        .eq('id', rowId)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        // Row doesn't exist — push local state up
+        isPulling.current = false
+        await push(state)
+        return
+      }
+      if (error) { isPulling.current = false; return }
+
+      if (data?.data) {
+        const d = data.data
+        if (d.theme !== undefined) setTheme(d.theme)
+        if (d.sound !== undefined) setSound(d.sound)
+        if (d.view !== undefined) setView(d.view)
+        if (d.tasks !== undefined) setTasks(d.tasks)
+        if (d.categories !== undefined) setCategories(d.categories)
+        if (d.customThemes !== undefined) setCustomThemes(d.customThemes)
+        if (d.categoryColors !== undefined && d.categoryColors._v >= 2) setCategoryColors(d.categoryColors)
+      }
+      // Keep isPulling true briefly so the debounced push effect
+      // ignores the state updates triggered by the setters above
+      setTimeout(() => { isPulling.current = false }, 100)
+    } catch {
+      isPulling.current = false
+    }
+  }, [rowId, push, state, setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors])
+
   // Initial pull on mount
   useEffect(() => {
     pull().then(() => { initialPullDone.current = true })
@@ -61,8 +67,10 @@ export function useCloudSync(userId, state, setters) {
   // Debounced push on state change
   useEffect(() => {
     if (!initialPullDone.current) return
+    if (isPulling.current) return
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
+      if (isPulling.current) return
       push({ theme, sound, view, tasks, categories, customThemes, categoryColors })
     }, 1500)
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
