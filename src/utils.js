@@ -65,14 +65,117 @@ export function generateId() {
 }
 
 // ── Sound Player ──
+// Shared AudioContext for iOS silent mode support
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === "suspended") _audioCtx.resume();
+  return _audioCtx;
+}
+
+// Custom sound synthesizers
+const CUSTOM_SYNTHS = {
+  bubble(ctx, now) {
+    // Three rising bubbles: sine with pitch bend + filtered noise
+    [0, 0.12, 0.26].forEach((offset, i) => {
+      const t = now + offset;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      const baseFreq = 250 + i * 80;
+      osc.frequency.setValueAtTime(baseFreq, t);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, t + 0.08);
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+  },
+
+  laser(ctx, now) {
+    // Retro laser: descending sine sweep
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(2400, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.35);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(4000, now);
+    filter.frequency.exponentialRampToValueAtTime(200, now + 0.35);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.45);
+  },
+
+  kalimba(ctx, now) {
+    // Metallic plucked tines: pairs of harmonically-related sines
+    [0, 0.11, 0.22].forEach((offset, i) => {
+      const t = now + offset;
+      const freqs = [[523, 1568], [659, 1976], [784, 2349]][i];
+      freqs.forEach((f) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(f > 1000 ? 0.06 : 0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.55);
+      });
+    });
+  },
+
+  coin(ctx, now) {
+    // Video game coin collect: bright rising arpeggio
+    [0, 0.06].forEach((offset, i) => {
+      const t = now + offset;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(i === 0 ? 988 : 1319, t);
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.setValueAtTime(0.1, t + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (i === 0 ? 0.12 : 0.4));
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.45);
+    });
+  },
+};
+
 export function playSound(soundKey) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioCtx();
     const sound = SOUNDS[soundKey];
     if (!sound) return;
     const now = ctx.currentTime;
 
-    if (sound.type === "noise") {
+    if (sound.type === "file") {
+      // Play audio file through AudioContext (works with iOS silent mode)
+      fetch(sound.src)
+        .then((r) => r.arrayBuffer())
+        .then((buf) => ctx.decodeAudioData(buf))
+        .then((decoded) => {
+          const src = ctx.createBufferSource();
+          src.buffer = decoded;
+          src.connect(ctx.destination);
+          src.start(0);
+        }).catch(() => {});
+      return;
+    } else if (sound.type === "custom") {
+      const synth = CUSTOM_SYNTHS[sound.synth];
+      if (synth) synth(ctx, now);
+    } else if (sound.type === "noise") {
       // White noise buffer
       const len = ctx.sampleRate * sound.dur;
       const buf = ctx.createBuffer(1, len, ctx.sampleRate);

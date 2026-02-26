@@ -100,15 +100,15 @@ export const PRIORITY_CONFIG = {
 
 export const SOUNDS = {
   chime: { name: "Chime", type: "tonal", freq: [523, 659, 784], wave: "sine", dur: 0.4, spacing: 0.1 },
-  bell: { name: "Bell", type: "tonal", freq: [880, 1109], wave: "sine", dur: 0.6, spacing: 0.12 },
-  harp: { name: "Harp", type: "tonal", freq: [392, 494, 587, 784], wave: "sine", dur: 0.5, spacing: 0.07 },
-  marimba: { name: "Marimba", type: "tonal", freq: [523, 784], wave: "triangle", dur: 0.25, spacing: 0.1 },
-  windchime: { name: "Wind Chime", type: "tonal", freq: [1047, 1319, 1568, 1760], wave: "sine", dur: 0.7, spacing: 0.15 },
-  raindrop: { name: "Raindrop", type: "tonal", freq: [1200, 800], wave: "sine", dur: 0.35, spacing: 0.12 },
-  whisper: { name: "Whisper", type: "tonal", freq: [440, 554, 659], wave: "triangle", dur: 0.45, spacing: 0.09 },
-  bloom: { name: "Bloom", type: "tonal", freq: [330, 440, 554, 659], wave: "sine", dur: 0.55, spacing: 0.12 },
+  windchime: { name: "Cheer", type: "tonal", freq: [1047, 1319, 1568, 1760], wave: "sine", dur: 0.7, spacing: 0.15 },
   whoosh: { name: "Whoosh", type: "noise", dur: 0.4 },
   pop: { name: "Pop", type: "noise", dur: 0.08, style: "pop" },
+  quack: { name: "Quack", type: "file", src: "/sounds/quack.mp3" },
+  whistle: { name: "Whistle", type: "file", src: "/sounds/whistle.mp3" },
+  bubble: { name: "Bubble", type: "custom", synth: "bubble" },
+  laser: { name: "Laser", type: "custom", synth: "laser" },
+  kalimba: { name: "Kalimba", type: "custom", synth: "kalimba" },
+  coin: { name: "Coin", type: "custom", synth: "coin" },
 };
 
 export const ENCOURAGEMENTS = [

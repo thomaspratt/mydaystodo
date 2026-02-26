@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { THEMES, PRIORITY_CONFIG, ENCOURAGEMENTS, DEFAULT_CATEGORIES, DAY_NAMES, MONTH_NAMES, generateTheme, hslToHex as hslToHexUtil } from "./themes";
+import { THEMES, PRIORITY_CONFIG, ENCOURAGEMENTS, DEFAULT_CATEGORIES, DAY_NAMES, MONTH_NAMES, SOUNDS, generateTheme, hslToHex as hslToHexUtil } from "./themes";
 import { dateKey, isToday, daysBetween, addDays, parseDate, getWeekDates, getMonthDates, generateId, getRecurrenceInstances, playSound } from "./utils";
 import { loadState, saveState } from "./storage";
 import { supabase } from "./supabase";
@@ -96,7 +96,7 @@ function MonthGrid({ monthDates, currentDate, t, getTasksForDate, isToday: isTod
 
 export default function App({ session }) {
   const [theme, setTheme] = useState(() => loadState("theme", "sunset"));
-  const [sound, setSound] = useState(() => loadState("sound", "chime"));
+  const [sound, setSound] = useState(() => { const s = loadState("sound", "chime"); return SOUNDS[s] ? s : "chime"; });
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState(() => loadState("view", "week"));
   const [tasks, setTasks] = useState(() => loadState("tasks", []));
