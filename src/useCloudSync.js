@@ -95,11 +95,22 @@ export function useCloudSync(userId, state, setters) {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [pull])
 
-  // Poll for remote changes so simultaneously open devices stay in sync
+  // Poll for remote changes only while the tab is visible
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (initialPullDone.current) pull()
-    }, 15000)
-    return () => clearInterval(interval)
+    let interval = null
+    function start() {
+      if (!interval) interval = setInterval(() => {
+        if (initialPullDone.current) pull()
+      }, 15000)
+    }
+    function stop() {
+      if (interval) { clearInterval(interval); interval = null }
+    }
+    function onVisibility() {
+      if (document.visibilityState === 'visible') start(); else stop()
+    }
+    if (document.visibilityState === 'visible') start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility) }
   }, [pull])
 }
