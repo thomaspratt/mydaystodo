@@ -3,3 +3,4 @@ Planned features:
 - Streamlined login screen with no white background that does not require email verification
 - Fix the month picker so that the arrow keys when navigating between months don't bounce around all crazy
 - Ability for subtasks to exist on a different day from their parent task
+- Can you make it so the header (like the bar by which you can drag around the window) of the PWA version changes to the main theme color? Right now it always stays as the Sunset color (the default theme). Just noticed this upon installing the PWA to my machine.

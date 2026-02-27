@@ -9,13 +9,11 @@ export function useCloudSync(userId, state, setters) {
   const stateRef = useRef(state)
   const lastPulledJSON = useRef(null)
   const rowId = `state_${userId}`
-  const wasOffline = useRef(false)
-  const dirtyWhileOffline = useRef(false)
-  const suppressNextVisibilityPull = useRef(false)
+  const pendingPush = useRef(false)
 
   stateRef.current = state
 
-  // Push state to Supabase
+  // Push state to Supabase — returns true on success, false on failure
   const push = useCallback(async (currentState) => {
     try {
       await supabase.from('tasks').upsert({
@@ -24,8 +22,9 @@ export function useCloudSync(userId, state, setters) {
         data: currentState,
         updated_at: new Date().toISOString(),
       })
+      return true
     } catch {
-      // Network error — silently ignore
+      return false
     }
   }, [rowId, userId])
 
@@ -68,6 +67,25 @@ export function useCloudSync(userId, state, setters) {
     }
   }, [rowId, push, setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors])
 
+  // If we have a pending push (from a prior failed attempt), try to push first.
+  // Only pull if there is nothing pending — prevents offline edits from being overwritten.
+  const tryPushPendingOrPull = useCallback(async () => {
+    if (pendingPush.current) {
+      const current = stateRef.current
+      const success = await push(current)
+      if (success) {
+        pendingPush.current = false
+        lastPulledJSON.current = JSON.stringify({
+          theme: current.theme, sound: current.sound, view: current.view, tasks: current.tasks,
+          categories: current.categories, customThemes: current.customThemes, categoryColors: current.categoryColors,
+        })
+      }
+      // Whether push succeeded or failed, don't pull — never overwrite local state with remote
+    } else {
+      await pull()
+    }
+  }, [push, pull])
+
   // Initial pull on mount
   useEffect(() => {
     pull().then(() => { initialPullDone.current = true })
@@ -77,77 +95,39 @@ export function useCloudSync(userId, state, setters) {
   useEffect(() => {
     if (!initialPullDone.current) return
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = setTimeout(async () => {
       const current = { theme, sound, view, tasks, categories, customThemes, categoryColors }
       // Don't push if state matches what we last pulled — it's just an echo
       if (JSON.stringify(current) === lastPulledJSON.current) return
-      // If offline, record that we have unsaved changes instead of pushing
-      if (!navigator.onLine) {
-        dirtyWhileOffline.current = true
-        return
+      const success = await push(current)
+      if (success) {
+        pendingPush.current = false
+        lastPulledJSON.current = JSON.stringify(current)
+      } else {
+        // Push failed (offline) — mark as pending so next visibility/poll will push instead of pull
+        pendingPush.current = true
       }
-      push(current)
-      lastPulledJSON.current = JSON.stringify(current)
     }, 1500)
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
   }, [theme, sound, view, tasks, categories, customThemes, categoryColors, push])
 
-  // Re-pull on tab visibility change
+  // On visibility change, push pending changes or pull fresh state
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === 'visible' && initialPullDone.current) {
-        // Skip if the online handler already just handled a reconnect
-        if (suppressNextVisibilityPull.current) {
-          suppressNextVisibilityPull.current = false
-          return
-        }
-        pull()
+        tryPushPendingOrPull()
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [pull])
+  }, [tryPushPendingOrPull])
 
-  // Handle offline/online transitions
-  useEffect(() => {
-    function handleOffline() {
-      wasOffline.current = true
-      dirtyWhileOffline.current = false
-    }
-    async function handleOnline() {
-      if (!wasOffline.current) return
-      wasOffline.current = false
-      if (dirtyWhileOffline.current) {
-        // We made changes while offline — push local state so it wins
-        dirtyWhileOffline.current = false
-        const current = stateRef.current
-        await push(current)
-        lastPulledJSON.current = JSON.stringify({
-          theme: current.theme, sound: current.sound, view: current.view, tasks: current.tasks,
-          categories: current.categories, customThemes: current.customThemes, categoryColors: current.categoryColors,
-        })
-      } else {
-        // No offline changes — pull fresh state from server
-        await pull()
-      }
-      // Suppress the visibilitychange pull that may fire immediately after
-      suppressNextVisibilityPull.current = true
-      setTimeout(() => { suppressNextVisibilityPull.current = false }, 3000)
-    }
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', handleOnline)
-    return () => {
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', handleOnline)
-    }
-  }, [push, pull])
-
-  // Poll for remote changes only while the tab is visible
+  // Poll every 15s while tab is visible — push pending changes or pull fresh state
   useEffect(() => {
     let interval = null
     function start() {
       if (!interval) interval = setInterval(() => {
-        if (initialPullDone.current) pull()
+        if (initialPullDone.current) tryPushPendingOrPull()
       }, 15000)
     }
     function stop() {
@@ -159,5 +139,5 @@ export function useCloudSync(userId, state, setters) {
     if (document.visibilityState === 'visible') start()
     document.addEventListener('visibilitychange', onVisibility)
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibility) }
-  }, [pull])
+  }, [tryPushPendingOrPull])
 }
