@@ -9,6 +9,9 @@ export function useCloudSync(userId, state, setters) {
   const stateRef = useRef(state)
   const lastPulledJSON = useRef(null)
   const rowId = `state_${userId}`
+  const wasOffline = useRef(false)
+  const dirtyWhileOffline = useRef(false)
+  const suppressNextVisibilityPull = useRef(false)
 
   stateRef.current = state
 
@@ -78,6 +81,11 @@ export function useCloudSync(userId, state, setters) {
       const current = { theme, sound, view, tasks, categories, customThemes, categoryColors }
       // Don't push if state matches what we last pulled — it's just an echo
       if (JSON.stringify(current) === lastPulledJSON.current) return
+      // If offline, record that we have unsaved changes instead of pushing
+      if (!navigator.onLine) {
+        dirtyWhileOffline.current = true
+        return
+      }
       push(current)
       lastPulledJSON.current = JSON.stringify(current)
     }, 1500)
@@ -88,12 +96,51 @@ export function useCloudSync(userId, state, setters) {
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === 'visible' && initialPullDone.current) {
+        // Skip if the online handler already just handled a reconnect
+        if (suppressNextVisibilityPull.current) {
+          suppressNextVisibilityPull.current = false
+          return
+        }
         pull()
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [pull])
+
+  // Handle offline/online transitions
+  useEffect(() => {
+    function handleOffline() {
+      wasOffline.current = true
+      dirtyWhileOffline.current = false
+    }
+    async function handleOnline() {
+      if (!wasOffline.current) return
+      wasOffline.current = false
+      if (dirtyWhileOffline.current) {
+        // We made changes while offline — push local state so it wins
+        dirtyWhileOffline.current = false
+        const current = stateRef.current
+        await push(current)
+        lastPulledJSON.current = JSON.stringify({
+          theme: current.theme, sound: current.sound, view: current.view, tasks: current.tasks,
+          categories: current.categories, customThemes: current.customThemes, categoryColors: current.categoryColors,
+        })
+      } else {
+        // No offline changes — pull fresh state from server
+        await pull()
+      }
+      // Suppress the visibilitychange pull that may fire immediately after
+      suppressNextVisibilityPull.current = true
+      setTimeout(() => { suppressNextVisibilityPull.current = false }, 3000)
+    }
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [push, pull])
 
   // Poll for remote changes only while the tab is visible
   useEffect(() => {
