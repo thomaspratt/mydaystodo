@@ -201,7 +201,7 @@ export default function App({ session }) {
 
   function showToast(msg) {
     setToast({ message: msg, visible: true });
-    setTimeout(() => setToast((p) => ({ ...p, visible: false })), 2500);
+    setTimeout(() => setToast((p) => ({ ...p, visible: false })), 4000);
   }
 
   // ── Navigation ──

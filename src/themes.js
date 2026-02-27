@@ -112,16 +112,20 @@ export const SOUNDS = {
 };
 
 export const ENCOURAGEMENTS = [
-  "you're seriously so cute","i can't believe you did that! just kidding. i knew you would",
-  "click it again. just for fun. you won't","congratulations. we love you","phew! we were about to have an intervention about that one",
-  "amazing news!","good job! now take two minutes to dance","you're soooo cute","i love when you click me!",
-  "nice! we've just paid you 5 dollars","please don't spam click just to see all the messages :(",
-  "delicious","extravagant","that went swimmingly","wow... you're amazing", "i'm speechless",
-  "you seem like a really cool person","it's so admirable how much you care about people and things",
-  "i just told everyone you did that","that task never stood a chance.","the other tasks are sooo scared",
-  "that was so satisfying i felt it too",
-  "very skillful click! you're getting this!","do you take constructive praise?",
-  "all the other todo list apps are getting really jealous of your productivity. it's a problem"
+  "You're soooo smart","I can't believe you did that! Just kidding. I knew you would",
+  "Click it again. Just for fun. You won't","Congratulations. We love you","Phew! We were about to have an intervention about that one",
+  "Amazing news!","Good job! Now take two minutes to dance","You're soooo cute","I love when you click me!",
+  "Nice! We've just paid you 5 dollars","Please don't spam click just to see all the messages :(",
+  "Delicious","Extravagant","That went swimmingly","Wow... you're amazing", "I'm speechless",
+  "You seem like a really cool person","It's so admirable how much you care about people and things",
+  "I just told everyone you did that","That task never stood a chance.","The other tasks must be so scared",
+  "That was so satisfying I felt it too",
+  "Very skillful click! You're getting this!",
+  "All the other todo list apps are getting really jealous of your productivity. It's a problem",
+  "Quack","I bet that was pretty easy for you","Now that you finished that, do you have time to be my friend?",
+  "Hey. You. I'm really proud of you", "That task had a family", "Wait don't go yet. Just stay here for a second. Ok you can go",
+  "Some of the other messages have an annoying tone. This one is just a pure, no-frills congratulations. I bet nobody orders black coffee anymore",
+  "I've seen a lot of task in my life, and that one is arguably the most complete of all",
 ];
 
 export const DEFAULT_CATEGORIES = [
