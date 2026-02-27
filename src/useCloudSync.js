@@ -9,20 +9,26 @@ export function useCloudSync(userId, state, setters) {
   const stateRef = useRef(state)
   const lastPulledJSON = useRef(null)
   const rowId = `state_${userId}`
-  const pendingPush = useRef(false)
 
   stateRef.current = state
 
-  // Push state to Supabase — returns true on success, false on failure
+  // Serialize state in a consistent key order for comparison
+  const serialize = (s) => JSON.stringify({
+    theme: s.theme, sound: s.sound, view: s.view, tasks: s.tasks,
+    categories: s.categories, customThemes: s.customThemes, categoryColors: s.categoryColors,
+  })
+
+  // Push state to Supabase — returns true on success, false on failure.
+  // NOTE: Supabase returns { error } rather than throwing, so we must check error explicitly.
   const push = useCallback(async (currentState) => {
     try {
-      await supabase.from('tasks').upsert({
+      const { error } = await supabase.from('tasks').upsert({
         id: rowId,
         user_id: userId,
         data: currentState,
         updated_at: new Date().toISOString(),
       })
-      return true
+      return !error
     } catch {
       return false
     }
@@ -67,20 +73,16 @@ export function useCloudSync(userId, state, setters) {
     }
   }, [rowId, push, setTheme, setSound, setView, setTasks, setCategories, setCustomThemes, setCategoryColors])
 
-  // If we have a pending push (from a prior failed attempt), try to push first.
-  // Only pull if there is nothing pending — prevents offline edits from being overwritten.
+  // If local state has changed since the last successful sync, push first.
+  // Only pull if local state is already in sync — prevents offline edits from being overwritten.
+  // Comparing against lastPulledJSON is synchronous so it's immune to debounce race conditions.
   const tryPushPendingOrPull = useCallback(async () => {
-    if (pendingPush.current) {
-      const current = stateRef.current
+    const current = stateRef.current
+    const currentJSON = serialize(current)
+    if (currentJSON !== lastPulledJSON.current) {
       const success = await push(current)
-      if (success) {
-        pendingPush.current = false
-        lastPulledJSON.current = JSON.stringify({
-          theme: current.theme, sound: current.sound, view: current.view, tasks: current.tasks,
-          categories: current.categories, customThemes: current.customThemes, categoryColors: current.categoryColors,
-        })
-      }
-      // Whether push succeeded or failed, don't pull — never overwrite local state with remote
+      if (success) lastPulledJSON.current = currentJSON
+      // Don't pull regardless — never overwrite unsynced local state with remote
     } else {
       await pull()
     }
@@ -97,16 +99,12 @@ export function useCloudSync(userId, state, setters) {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(async () => {
       const current = { theme, sound, view, tasks, categories, customThemes, categoryColors }
-      // Don't push if state matches what we last pulled — it's just an echo
+      // Don't push if state matches what we last synced — it's just an echo
       if (JSON.stringify(current) === lastPulledJSON.current) return
       const success = await push(current)
-      if (success) {
-        pendingPush.current = false
-        lastPulledJSON.current = JSON.stringify(current)
-      } else {
-        // Push failed (offline) — mark as pending so next visibility/poll will push instead of pull
-        pendingPush.current = true
-      }
+      if (success) lastPulledJSON.current = JSON.stringify(current)
+      // If push failed, lastPulledJSON stays behind current state,
+      // so tryPushPendingOrPull will push (not pull) on next visibility/poll
     }, 1500)
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current) }
   }, [theme, sound, view, tasks, categories, customThemes, categoryColors, push])
