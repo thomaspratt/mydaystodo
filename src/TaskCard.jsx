@@ -35,61 +35,103 @@ export default function TaskCard({
     );
   }
 
+  const hasSubtasks = task.childSubtasks?.length > 0;
+
   return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart(e, task)}
-      style={{
-        position: "relative", padding: "7px 10px", borderRadius: 8,
-        background: task.completed
-          ? `${catColor}0d`
-          : (task.isRecurrenceInstance ? `${catColor}10` : `${catColor}1a`),
-        borderLeft: `${pri.border + 1.5}px ${task.isRecurrenceInstance ? "dashed" : "solid"} ${catColor}`,
-        boxShadow: task.priority === "high" ? `${pri.glow} ${catColor}66` : "none",
-        cursor: "grab", display: "flex", alignItems: "flex-start", gap: 8,
-        transition: "all 0.2s ease",
-        opacity: task.completed ? 0.5 : (task.isRecurrenceInstance ? 0.55 : 1),
-        animation: confettiTask === task.id ? "taskComplete 0.4s ease" : "none",
-      }}
-    >
-      <Confetti active={confettiTask === task.id} color={catColor} />
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}
+    <div draggable onDragStart={(e) => onDragStart(e, task)}
+      style={{ borderRadius: 8, overflow: "hidden", cursor: "grab" }}>
+      <div
         style={{
-          width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-          border: `2px solid ${task.completed ? catColor : `${catColor}88`}`,
-          background: task.completed ? catColor : "transparent",
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          marginTop: 1, animation: task.completed ? "checkPop 0.3s ease" : "none",
-          transition: "all 0.15s ease",
+          position: "relative", padding: "7px 10px",
+          borderRadius: hasSubtasks ? "8px 8px 0 0" : 8,
+          background: task.completed
+            ? `${catColor}0d`
+            : (task.isRecurrenceInstance ? `${catColor}10` : `${catColor}1a`),
+          borderLeft: `${pri.border + 1.5}px ${task.isRecurrenceInstance ? "dashed" : "solid"} ${catColor}`,
+          boxShadow: task.priority === "high" ? `${pri.glow} ${catColor}66` : "none",
+          display: "flex", alignItems: "flex-start", gap: 8,
+          transition: "all 0.2s ease",
+          opacity: task.completed ? 0.5 : (task.isRecurrenceInstance ? 0.55 : 1),
+          animation: confettiTask === task.id ? "taskComplete 0.4s ease" : "none",
         }}
       >
-        {task.completed && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: 1 }}>✓</span>}
-      </button>
-      <div style={{ flex: 1, minWidth: 0 }} onClick={() => onEdit(task)}>
-        <div style={{
-          fontSize: 13, fontWeight: 600,
-          color: task.completed ? t.textMuted : t.text,
-          textDecoration: task.completed ? "line-through" : "none",
-          lineHeight: 1.4, overflow: "hidden",
-          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
-          wordBreak: "break-word",
-          maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-        }}>
-          {pri.icon && <span style={{ marginRight: 4, fontSize: `${pri.iconSize}em` }}>{pri.icon}</span>}
-          {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
-          {task.title}
-        </div>
-        {task.recurrence && (
-          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
-            ↻ {task.recurrence}
-            {task.isRecurrenceInstance ? "" : (task.recurrenceEnd
-              ? ` · until ${parseDate(task.recurrenceEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-              : " · ongoing")}
+        <Confetti active={confettiTask === task.id} color={catColor} />
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}
+          style={{
+            width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+            border: `2px solid ${task.completed ? catColor : `${catColor}88`}`,
+            background: task.completed ? catColor : "transparent",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            marginTop: 1, animation: task.completed ? "checkPop 0.3s ease" : "none",
+            transition: "all 0.15s ease",
+          }}
+        >
+          {task.completed && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }} onClick={() => onEdit(task)}>
+          <div style={{
+            fontSize: 13, fontWeight: 600,
+            color: task.completed ? t.textMuted : t.text,
+            textDecoration: task.completed ? "line-through" : "none",
+            lineHeight: 1.4, overflow: "hidden",
+            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
+            wordBreak: "break-word",
+            maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+          }}>
+            {pri.icon && <span style={{ marginRight: 4, fontSize: `${pri.iconSize}em` }}>{pri.icon}</span>}
+            {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
+            {task.title}
           </div>
-        )}
+          {task.recurrence && (
+            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+              ↻ {task.recurrence}
+              {task.isRecurrenceInstance ? "" : (task.recurrenceEnd
+                ? ` · until ${parseDate(task.recurrenceEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                : " · ongoing")}
+            </div>
+          )}
+        </div>
       </div>
+      {hasSubtasks && (
+        <div style={{
+          borderLeft: `${pri.border + 1.5}px solid ${catColor}`,
+          background: `${catColor}0d`, borderRadius: "0 0 8px 8px",
+          padding: "2px 10px 5px 28px",
+        }}>
+          {task.childSubtasks.map((sub) => (
+            <div key={sub.id} style={{
+              position: "relative", display: "flex", alignItems: "center", gap: 7, padding: "3px 0",
+            }}>
+              <Confetti active={confettiTask === sub.id} color={catColor} />
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleComplete(sub); }}
+                style={{
+                  width: 14, height: 14, borderRadius: 4, flexShrink: 0,
+                  border: `1.5px solid ${sub.completed ? catColor : `${catColor}88`}`,
+                  background: sub.completed ? catColor : "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: sub.completed ? "checkPop 0.3s ease" : "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {sub.completed && <span style={{ color: "#fff", fontSize: 8, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+              </button>
+              <span
+                onClick={() => onEdit(sub)}
+                style={{
+                  fontSize: 12, cursor: "pointer",
+                  color: sub.completed ? t.textMuted : t.text,
+                  textDecoration: sub.completed ? "line-through" : "none",
+                  opacity: sub.completed ? 0.6 : 1,
+                  fontFamily: "'Nunito', sans-serif",
+                }}
+              >{sub.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

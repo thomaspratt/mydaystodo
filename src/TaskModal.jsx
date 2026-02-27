@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { THEMES, PRIORITY_CONFIG } from "./themes";
 import { parseDate, dateKey, generateId } from "./utils";
-import { MONTH_NAMES } from "./themes";
+import CustomSelect from "./CustomSelect";
+import DatePicker from "./DatePicker";
 
 export default function TaskModal({ task, onSave, onRequestDelete, onClose, categories, theme, allThemes }) {
   const t = (allThemes || THEMES)[theme] || THEMES.sunset;
@@ -11,19 +12,19 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
   const [recurrence, setRecurrence] = useState(task?.recurrence || "none");
   const [recurrenceMode, setRecurrenceMode] = useState(task?.recurrenceEnd ? "limited" : "forever");
   const [recurrenceCount, setRecurrenceCount] = useState(String(task?.recurrenceCount || ""));
-  const [subtaskMode, setSubtaskMode] = useState(false);
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
+  const [subtaskMode, setSubtaskMode] = useState(subtasks.length > 0);
   const [newSubtask, setNewSubtask] = useState("");
-  const [newSubDate, setNewSubDate] = useState(task?.date || dateKey(new Date()));
+  const [date, setDate] = useState(task?.date || dateKey(new Date()));
 
   const isEdit = !!task?.id && !task?.isNew;
 
   function handleSave() {
-    if (!title.trim()) return;
+    if (!title.trim() || !date) return;
     let recurrenceEnd = null;
     const rec = recurrence === "none" ? null : recurrence;
     if (rec && recurrenceMode === "limited") {
-      const origin = parseDate(task?.date || dateKey(new Date()));
+      const origin = parseDate(date);
       const endDate = new Date(origin);
       // recurrenceCount = total occurrences including the origin, so subtract 1
       const count = Math.max(1, Math.min(365, parseInt(recurrenceCount) || 1));
@@ -39,7 +40,7 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
     }
     onSave({
       ...task,
-      title: title.trim(), category, priority,
+      date, title: title.trim(), category, priority,
       recurrence: rec, recurrenceEnd,
       recurrenceCount: recurrenceMode === "limited" ? (Math.max(1, Math.min(365, parseInt(recurrenceCount) || 1))) : null,
       subtasks,
@@ -48,9 +49,29 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
 
   function addSubtask() {
     if (!newSubtask.trim()) return;
-    setSubtasks([...subtasks, { id: generateId(), title: newSubtask.trim(), date: newSubDate, completed: false }]);
+    setSubtasks([...subtasks, { id: generateId(), title: newSubtask.trim(), date, completed: false }]);
     setNewSubtask("");
   }
+
+  const saveRef = useRef(handleSave);
+  saveRef.current = handleSave;
+
+  const isEditRef = useRef(isEdit);
+  isEditRef.current = isEdit;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Enter" && !e.defaultPrevented && !e.target.dataset.noGlobalEnter) saveRef.current();
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        if (isEditRef.current) saveRef.current();
+        else onCloseRef.current();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const labelStyle = {
     color: t.textMuted, fontSize: 12, fontWeight: 600, display: "block",
@@ -60,7 +81,7 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
   const inputStyle = {
     width: "100%", padding: "8px 12px", background: t.bg,
     border: `1px solid ${t.border}`, borderRadius: 8, color: t.text,
-    fontSize: 14, fontFamily: "'Nunito', sans-serif",
+    fontSize: 14, fontFamily: "'Nunito', sans-serif", colorScheme: "dark",
   };
   const pill = (active) => ({
     padding: "6px 14px", borderRadius: 20, cursor: "pointer",
@@ -83,77 +104,63 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
         border: `1px solid ${t.border}`, boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
         animation: "slideUp 0.25s ease",
       }}>
-        <h3 style={{ color: t.text, margin: "0 0 4px", fontFamily: "'Nunito', sans-serif", fontSize: 20, fontWeight: 700 }}>
+        <h3 style={{ color: t.text, margin: "0 0 16px", fontFamily: "'Nunito', sans-serif", fontSize: 20, fontWeight: 700 }}>
           {isEdit ? "Edit Task" : "New Task"}
         </h3>
-        {(() => {
-          const d = parseDate(task?.date || dateKey(new Date()));
-          const dayAbbr = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-          const monAbbr = MONTH_NAMES[d.getMonth()].slice(0, 3);
-          return (
-            <div style={{ color: `${t.accent}bb`, fontSize: 13, fontWeight: 600, fontFamily: "'Nunito', sans-serif", marginBottom: 16 }}>
-              {dayAbbr} {monAbbr} {d.getDate()}
-            </div>
-          );
-        })()}
-
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs doing?" onKeyDown={(e) => { if (e.key === "Enter") handleSave(); else if ((e.key === "Backspace" || e.key === "Delete") && !title) { e.preventDefault(); onClose(); } }}
+          placeholder="What needs doing?" onKeyDown={(e) => { if ((e.key === "Backspace" || e.key === "Delete") && !title) { e.preventDefault(); onClose(); } }}
           style={{ ...inputStyle, padding: "12px 16px", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }}
         />
 
         <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 120 }}>
             <label style={labelStyle}>Category</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
-              {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-            </select>
+            <CustomSelect value={category} onChange={setCategory} theme={t}
+              options={categories.map((c) => ({ value: c.name, label: c.name }))} />
           </div>
           <div style={{ flex: 1, minWidth: 120 }}>
             <label style={labelStyle}>Priority</label>
-            <select value={priority} onChange={(e) => setPriority(e.target.value)} style={inputStyle}>
-              {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
-                <option key={k} value={k}>{v.icon} {v.label}</option>
-              ))}
-            </select>
+            <CustomSelect value={priority} onChange={setPriority} theme={t}
+              options={Object.entries(PRIORITY_CONFIG).map(([k, v]) => ({ value: k, label: `${v.icon} ${v.label}`.trim() }))} />
           </div>
         </div>
 
-        {/* Recurrence */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Repeat</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {["none", "daily", "weekly", "biweekly", "monthly", "yearly"].map((r) => (
-              <button key={r} onClick={() => setRecurrence(r)} style={pill(recurrence === r)}>
-                {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
-              </button>
-            ))}
+        {/* Recurrence + Date */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label style={labelStyle}>Repeat</label>
+            <CustomSelect value={recurrence} onChange={setRecurrence} theme={t} dropUp
+              options={[["none","Once"],["daily","Daily"],["weekly","Weekly"],["biweekly","Biweekly"],["monthly","Monthly"],["yearly","Yearly"]].map(([val, label]) => ({ value: val, label }))} />
           </div>
-          {recurrence !== "none" && (
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <button onClick={() => setRecurrenceMode("forever")}
-                style={{ ...pill(recurrenceMode === "forever"), padding: "5px 12px", fontSize: 12 }}>Forever</button>
-              <button onClick={() => setRecurrenceMode("limited")}
-                style={{ ...pill(recurrenceMode === "limited"), padding: "5px 12px", fontSize: 12 }}>For…</button>
-              {recurrenceMode === "limited" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input type="text" inputMode="numeric" value={recurrenceCount}
-                    onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); setRecurrenceCount(v); }}
-                    placeholder="#"
-                    style={{
-                      width: 54, padding: "5px 8px", textAlign: "center",
-                      background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8,
-                      color: t.text, fontSize: 13, fontFamily: "'Nunito', sans-serif", outline: "none",
-                    }}
-                  />
-                  <span style={{ color: t.textMuted, fontSize: 12 }}>
-                    {{ daily: "days", weekly: "weeks", biweekly: "fortnights", monthly: "months", yearly: "years" }[recurrence]}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label style={labelStyle}>Date</label>
+            <DatePicker value={date} onChange={(v) => { if (v) setDate(v); }} theme={t} dropUp />
+          </div>
         </div>
+        {recurrence !== "none" && (
+          <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={() => setRecurrenceMode("forever")}
+              style={{ ...pill(recurrenceMode === "forever"), padding: "5px 12px", fontSize: 12 }}>Forever</button>
+            <button onClick={() => setRecurrenceMode("limited")}
+              style={{ ...pill(recurrenceMode === "limited"), padding: "5px 12px", fontSize: 12 }}>For…</button>
+            {recurrenceMode === "limited" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input type="text" inputMode="numeric" value={recurrenceCount}
+                  onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); setRecurrenceCount(v); }}
+                  placeholder="#"
+                  style={{
+                    width: 54, padding: "5px 8px", textAlign: "center",
+                    background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8,
+                    color: t.text, fontSize: 13, fontFamily: "'Nunito', sans-serif", outline: "none",
+                  }}
+                />
+                <span style={{ color: t.textMuted, fontSize: 12 }}>
+                  {{ daily: "days", weekly: "weeks", biweekly: "fortnights", monthly: "months", yearly: "years" }[recurrence]}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Subtasks */}
         <div style={{ marginBottom: 16 }}>
@@ -166,18 +173,15 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
               {subtasks.map((s) => (
                 <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <span style={{ color: t.text, fontSize: 14, flex: 1, fontFamily: "'Nunito', sans-serif" }}>{s.title}</span>
-                  <span style={{ color: t.textMuted, fontSize: 12 }}>{s.date}</span>
-                  <button onClick={() => setSubtasks(subtasks.filter((x) => x.id !== s.id))}
+                  <button onClick={() => { const remaining = subtasks.filter((x) => x.id !== s.id); setSubtasks(remaining); if (remaining.length === 0) setSubtaskMode(false); }}
                     style={{ background: "none", border: "none", color: t.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
                 </div>
               ))}
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} placeholder="Subtask name"
-                  onKeyDown={(e) => e.key === "Enter" && addSubtask()}
+                  onKeyDown={(e) => { if (e.key === "Enter") { if (newSubtask.trim()) addSubtask(); else saveRef.current(); } }}
+                  data-no-global-enter="true"
                   style={{ ...inputStyle, flex: 1, padding: "8px 12px", fontSize: 13, outline: "none", background: t.surface, width: "auto" }}
-                />
-                <input type="date" value={newSubDate} onChange={(e) => setNewSubDate(e.target.value)}
-                  style={{ ...inputStyle, padding: "8px 10px", fontSize: 13, background: t.surface, width: "auto" }}
                 />
                 <button onClick={addSubtask} style={{
                   padding: "8px 14px", background: t.accent, border: "none", borderRadius: 8,

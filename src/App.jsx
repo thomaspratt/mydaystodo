@@ -276,13 +276,27 @@ export default function App({ session }) {
     });
 
     // Check completed recurrence instances
-    return [...directTasks, ...filteredInstances].map((task) => {
+    const allForDate = [...directTasks, ...filteredInstances].map((task) => {
       if (task.isRecurrenceInstance) {
         const completedKey = `${task.originalId}_done_${task.date}`;
         return { ...task, completed: !!tasks.find((tt) => tt.id === completedKey) };
       }
       return task;
     });
+
+    // Group subtasks under their parent, remove them from top level
+    const subtasksByParent = {};
+    const topLevel = [];
+    for (const task of allForDate) {
+      if (task.parentId) {
+        (subtasksByParent[task.parentId] ||= []).push(task);
+      } else {
+        topLevel.push(task);
+      }
+    }
+    return topLevel.map((task) =>
+      subtasksByParent[task.id] ? { ...task, childSubtasks: subtasksByParent[task.id] } : task
+    );
   }
 
   // ── Toggle complete ──
@@ -315,23 +329,34 @@ export default function App({ session }) {
   function openEditTask(task) {
     const taskDate = task.isRecurrenceInstance ? task.date : task.date;
     setLastNavDate(parseDate(taskDate));
+    let editTask;
     if (task.isRecurrenceInstance) {
       const original = tasks.find((tt) => tt.id === task.originalId);
-      if (original) setModalTask({ ...original, _clickedInstanceDate: task.date });
+      if (!original) return;
+      editTask = { ...original, _clickedInstanceDate: task.date };
+    } else if (task.parentId) {
+      // Clicked a subtask — open the parent instead
+      const parent = tasks.find((tt) => tt.id === task.parentId);
+      if (!parent) return;
+      editTask = { ...parent };
     } else {
-      setModalTask({ ...task });
+      editTask = { ...task };
     }
+    // Attach existing child subtasks so the modal can display them
+    const childSubs = tasks.filter((tt) => tt.parentId === editTask.id);
+    editTask.subtasks = childSubs.map((s) => ({ id: s.id, title: s.title, date: s.date, completed: s.completed }));
+    setModalTask(editTask);
   }
 
   function saveTask(taskData) {
     if (taskData.category) lastCategoryRef.current = taskData.category;
     if (taskData.isNew) {
-      const newTask = { ...taskData, id: generateId(), completed: false, isNew: undefined };
+      const newTask = { ...taskData, id: generateId(), completed: false, isNew: undefined, subtasks: undefined };
       const newTasks = [newTask];
       if (taskData.subtasks?.length > 0) {
         taskData.subtasks.forEach((sub) => {
           newTasks.push({
-            id: generateId(), title: sub.title, date: sub.date,
+            id: generateId(), title: sub.title, date: taskData.date,
             category: taskData.category, priority: "low", completed: false,
             parentId: newTask.id, parentTitle: taskData.title,
           });
@@ -339,7 +364,30 @@ export default function App({ session }) {
       }
       setTasks([...tasks, ...newTasks]);
     } else {
-      setTasks(tasks.map((tt) => (tt.id === taskData.id ? { ...taskData, _clickedInstanceDate: undefined } : tt)));
+      // Update parent task and sync subtask records
+      const savedSubs = taskData.subtasks || [];
+      const existingSubIds = tasks.filter((tt) => tt.parentId === taskData.id).map((tt) => tt.id);
+      const keptSubIds = new Set(savedSubs.filter((s) => existingSubIds.includes(s.id)).map((s) => s.id));
+      // Remove deleted subtasks, update parent
+      let updated = tasks
+        .filter((tt) => !(tt.parentId === taskData.id && !keptSubIds.has(tt.id)))
+        .map((tt) => {
+          if (tt.id === taskData.id) return { ...taskData, subtasks: undefined, _clickedInstanceDate: undefined };
+          if (keptSubIds.has(tt.id)) {
+            const sub = savedSubs.find((s) => s.id === tt.id);
+            return { ...tt, title: sub.title, date: taskData.date, parentTitle: taskData.title };
+          }
+          return tt;
+        });
+      // Add new subtasks
+      savedSubs.filter((s) => !existingSubIds.includes(s.id)).forEach((sub) => {
+        updated.push({
+          id: generateId(), title: sub.title, date: taskData.date,
+          category: taskData.category, priority: "low", completed: false,
+          parentId: taskData.id, parentTitle: taskData.title,
+        });
+      });
+      setTasks(updated);
     }
     setModalTask(null);
   }
@@ -532,7 +580,7 @@ export default function App({ session }) {
     // 3. Task name search
     const today = new Date();
     const todayTime = today.getTime();
-    const realTasks = tasks.filter(tt => tt.title && tt.title.trim() && !tt.completionMarker && !tt.skipMarker);
+    const realTasks = tasks.filter(tt => tt.title && tt.date && tt.title.trim() && !tt.completionMarker && !tt.skipMarker);
 
     // Collect non-recurring tasks
     const candidates = realTasks.filter(tt => !tt.recurrence && tt.title.toLowerCase().includes(qLower)).map(tt => ({

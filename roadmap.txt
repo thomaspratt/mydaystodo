@@ -1,3 +1,5 @@
 Planned features:
 - UI element in TaskModal that allows you to just select a date from the TaskModal and the task moves to that day.
 - Streamlined login screen with no white background that does not require email verification
+- Fix the month picker so that the arrow keys when navigating between months don't bounce around all crazy
+- Ability for subtasks to exist on a different day from their parent task

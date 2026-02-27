@@ -3,7 +3,7 @@ import { THEMES, SOUNDS, generateTheme } from "./themes";
 import { playSound } from "./utils";
 
 // ── Custom Color Picker ──
-function ColorPicker({ value, onChange, theme: t }) {
+function ColorPicker({ value, onChange, theme: t, small }) {
   const [open, setOpen] = useState(false);
   const [hue, setHue] = useState(0);
   const [sat, setSat] = useState(100);
@@ -121,9 +121,11 @@ function ColorPicker({ value, onChange, theme: t }) {
   return (
     <div ref={popRef} style={{ position: "relative" }}>
       <button ref={btnRef} onClick={() => setOpen(!open)} style={{
-        width: 36, height: 36, borderRadius: 10, cursor: "pointer",
-        background: value, border: `2px solid ${t.border}`,
-        boxShadow: `0 0 0 1px ${t.bg}`,
+        width: small ? 14 : 36, height: small ? 14 : 36,
+        borderRadius: small ? 4 : 10, cursor: "pointer",
+        background: value, border: small ? "none" : `2px solid ${t.border}`,
+        boxShadow: small ? "none" : `0 0 0 1px ${t.bg}`,
+        flexShrink: 0, padding: 0,
       }} />
       {open && (
         <div style={{
@@ -348,9 +350,11 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
         <div style={{ marginBottom: 20 }}>
           <label style={labelStyle}>Categories</label>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-            {categories.map((c) => (
+            {categories.map((c, ci) => (
               <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", background: t.bg, borderRadius: 8 }}>
-                <span style={{ width: 14, height: 14, borderRadius: 4, background: c.color, flexShrink: 0 }} />
+                <ColorPicker value={c.color} onChange={(newColor) => {
+                  setCategories(categories.map((x, i) => i === ci ? { ...x, color: newColor } : x));
+                }} theme={t} small />
                 <span style={{ color: t.text, fontSize: 14, flex: 1, fontFamily: "'Nunito', sans-serif" }}>{c.name}</span>
                 {categories.length > 1 && (
                   <button onClick={() => setCategories(categories.filter((x) => x.name !== c.name))}
