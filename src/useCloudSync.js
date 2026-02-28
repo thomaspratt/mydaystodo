@@ -28,8 +28,10 @@ export function useCloudSync(userId, state, setters) {
         data: currentState,
         updated_at: new Date().toISOString(),
       })
+      console.log('[sync] push result — error:', error, '| returning:', !error)
       return !error
-    } catch {
+    } catch (e) {
+      console.log('[sync] push threw:', e)
       return false
     }
   }, [rowId, userId])
@@ -58,7 +60,10 @@ export function useCloudSync(userId, state, setters) {
           categories: d.categories, customThemes: d.customThemes, categoryColors: d.categoryColors,
         })
         // Skip applying if remote state matches what we already have
-        if (normalized === lastPulledJSON.current) return
+        const pullMatchesLocal = normalized === lastPulledJSON.current
+        console.log('[sync] pull — remote matches local:', pullMatchesLocal, '| remote tasks count:', d.tasks?.length, '| local tasks count:', stateRef.current.tasks?.length)
+        if (pullMatchesLocal) return
+        console.log('[sync] pull — APPLYING remote state (this will overwrite local)')
         lastPulledJSON.current = normalized
         if (d.theme !== undefined) setTheme(d.theme)
         if (d.sound !== undefined) setSound(d.sound)
@@ -76,14 +81,18 @@ export function useCloudSync(userId, state, setters) {
   // If local state has changed since the last successful sync, push first.
   // Only pull if local state is already in sync — prevents offline edits from being overwritten.
   // Comparing against lastPulledJSON is synchronous so it's immune to debounce race conditions.
-  const tryPushPendingOrPull = useCallback(async () => {
+  const tryPushPendingOrPull = useCallback(async (source) => {
     const current = stateRef.current
     const currentJSON = serialize(current)
-    if (currentJSON !== lastPulledJSON.current) {
+    const statesMatch = currentJSON === lastPulledJSON.current
+    console.log(`[sync] tryPushPendingOrPull (from: ${source}) — states match:`, statesMatch)
+    if (!statesMatch) {
+      console.log('[sync] → pushing local state')
       const success = await push(current)
       if (success) lastPulledJSON.current = currentJSON
       // Don't pull regardless — never overwrite unsynced local state with remote
     } else {
+      console.log('[sync] → pulling remote state')
       await pull()
     }
   }, [push, pull])
@@ -102,6 +111,7 @@ export function useCloudSync(userId, state, setters) {
       // Don't push if state matches what we last synced — it's just an echo
       if (JSON.stringify(current) === lastPulledJSON.current) return
       const success = await push(current)
+      console.log('[sync] debounced push success:', success)
       if (success) lastPulledJSON.current = JSON.stringify(current)
       // If push failed, lastPulledJSON stays behind current state,
       // so tryPushPendingOrPull will push (not pull) on next visibility/poll
@@ -113,7 +123,7 @@ export function useCloudSync(userId, state, setters) {
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === 'visible' && initialPullDone.current) {
-        tryPushPendingOrPull()
+        tryPushPendingOrPull('visibilitychange')
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
@@ -125,7 +135,7 @@ export function useCloudSync(userId, state, setters) {
     let interval = null
     function start() {
       if (!interval) interval = setInterval(() => {
-        if (initialPullDone.current) tryPushPendingOrPull()
+        if (initialPullDone.current) tryPushPendingOrPull('poll')
       }, 15000)
     }
     function stop() {
