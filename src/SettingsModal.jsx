@@ -418,6 +418,7 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   ["Left / Right", "Navigate week or month"],
+                  ["Up / Down", "Highlight prev / next day"],
                   ["Tab", "Toggle week / month view"],
                   ["Escape", "Go to today"],
                   ["+ or =", "New task"],
