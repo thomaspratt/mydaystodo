@@ -3,7 +3,8 @@ Planned features:
 - Streamlined login screen with no white background that does not require email verification
 - Fix the month picker so that the arrow keys when navigating between months don't bounce around all crazy (comes at the cost of months sometimes looking weird)
 - Ability for subtasks to exist on a different day from their parent task
-- Don't cross out the little priority indicator character when completing a task with nonzero priority
+- Clicking on a category on month/week view makes all tasks from other categories temporarily invisibles
+- Clicking on a day with no tasks brings up taskModal (populates a big plus when u hover, removes the small plus)
 
 
 Completed features:
@@ -12,3 +13,9 @@ Completed features:
 2/26 - UI element in TaskModal that allows you to just select a date from the TaskModal and the task moves to that day
 3/2 - PWA header matches theme
 3/2 - remove extra delete dialog; still exists for recurring tasks
+3/2 - Don't cross out the little priority indicator character when completing a task with nonzero priority
+3/2 - glow restored
+3/2 - up/down arrow key navigation between days
+3/2 - custom themes rolled into default themes div
+3/2 - iOS aggressive cache eviction no longer takes precedence and instead index.html is fetched directly from vercel upon app opening
+
