@@ -27,7 +27,14 @@ self.addEventListener('fetch', (event) => {
   // Network-first for Supabase (auth + sync must be fresh)
   if (url.hostname.includes('supabase.co')) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request).catch(() =>
+        caches.match(event.request).then((cached) =>
+          cached || new Response(JSON.stringify({ error: 'offline' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      )
     )
     return
   }
