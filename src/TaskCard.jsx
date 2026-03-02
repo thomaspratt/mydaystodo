@@ -77,21 +77,20 @@ export default function TaskCard({
         >
           {task.completed && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: 1 }}>✓</span>}
         </button>
-        <div style={{ flex: 1, minWidth: 0 }} onClick={() => onEdit(task)}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-start", gap: 4 }} onClick={() => onEdit(task)}>
+          {pri.icon && <span style={{ fontSize: `${pri.iconSize * 13}px`, lineHeight: 1.4, flexShrink: 0 }}>{pri.icon}</span>}
           <div style={{
             fontSize: 13, fontWeight: 600,
             color: task.completed ? t.textMuted : t.text,
+            textDecoration: task.completed ? "line-through" : "none",
             lineHeight: 1.4, overflow: "hidden",
             display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
             wordBreak: "break-word",
             maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
           }}>
-            {pri.icon && <span style={{ marginRight: 4, fontSize: `${pri.iconSize}em`, textDecoration: "none", display: "inline-block" }}>{pri.icon}</span>}
-            <span style={{ textDecoration: task.completed ? "line-through" : "none" }}>
-              {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
-              {task.title}
-            </span>
+            {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
+            {task.title}
           </div>
           {task.recurrence && (
             <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
