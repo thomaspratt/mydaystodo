@@ -118,6 +118,12 @@ export default function App({ session }) {
   const allThemes = useMemo(() => ({ ...THEMES, ...customThemes }), [customThemes]);
   const t = allThemes[theme] || allThemes.sunset;
 
+  // Update PWA theme-color meta tag to match current theme
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t.today);
+  }, [t.today]);
+
   // Get the palette for a theme (stored overrides > theme defaults)
   const getThemePalette = useCallback((themeKey) => {
     if (categoryColors[themeKey]) return categoryColors[themeKey];
@@ -393,7 +399,12 @@ export default function App({ session }) {
   }
 
   // ── Delete handlers ──
-  function requestDelete(task) { setModalTask(null); setDeleteDialog(task); }
+  function requestDelete(task) {
+    setModalTask(null);
+    const isRecurring = !!(task.recurrence || task.isRecurrenceInstance);
+    if (isRecurring) { setDeleteDialog(task); return; }
+    deleteAllFuture(task);
+  }
 
   function deleteThisInstance(task) {
     const origId = task.originalId || task.id;
