@@ -259,10 +259,10 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
       }}>
         <h3 style={{ color: t.text, margin: "0 0 24px", fontFamily: "'Nunito', sans-serif", fontSize: 20, fontWeight: 700 }}>Settings</h3>
 
-        {/* Built-in Themes */}
+        {/* Themes */}
         <div style={{ marginBottom: 20 }}>
           <label style={labelStyle}>Themes</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             {Object.entries(THEMES).map(([key, th]) => (
               <button key={key} onClick={() => setTheme(key)} style={{
                 padding: "8px 16px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif",
@@ -276,21 +276,13 @@ export default function SettingsModal({ theme, setTheme, sound, setSound, catego
                 {th.name}
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* Custom Themes */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>Custom Themes</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             {Object.entries(customThemes).map(([key, th]) => {
               const active = theme === key;
-              const bg = active ? th.bg : t.bg;
-              const bdr = active ? `2px solid ${th.accent}` : `1px solid ${t.border}`;
               return (
                 <button key={key} onClick={() => setTheme(key)} style={{
                   padding: "8px 10px 8px 16px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif",
-                  border: bdr, background: bg,
+                  border: active ? `2px solid ${th.accent}` : `1px solid ${t.border}`,
+                  background: active ? th.bg : t.bg,
                   color: active ? th.accent : t.textMuted,
                   fontSize: 13, fontWeight: active ? 700 : 500,
                   display: "flex", alignItems: "center", gap: 6,
