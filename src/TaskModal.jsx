@@ -19,6 +19,29 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
 
   const isEdit = !!task?.id && !task?.isNew;
 
+  // Track visual viewport for iOS keyboard avoidance
+  const [vvHeight, setVvHeight] = useState(null);
+  const [vvOffsetTop, setVvOffsetTop] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    function onResize() {
+      setVvHeight(vv.height);
+      setVvOffsetTop(vv.offsetTop);
+    }
+    onResize();
+    vv.addEventListener("resize", onResize);
+    vv.addEventListener("scroll", onResize);
+    return () => { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };
+  }, []);
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   function handleSave() {
     if (!title.trim() || !date) return;
     let recurrenceEnd = null;
@@ -94,13 +117,18 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
 
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+      position: "fixed", left: 0, right: 0,
+      top: vvHeight != null ? vvOffsetTop : 0,
+      height: vvHeight != null ? vvHeight : "100%",
+      background: "rgba(0,0,0,0.6)",
       display: "flex", alignItems: "center", justifyContent: "center",
       zIndex: 500, backdropFilter: "blur(4px)", animation: "fadeIn 0.2s ease",
     }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{
         background: t.surface, borderRadius: 16, padding: 28,
-        width: "min(440px, 92vw)", maxHeight: "85vh", overflowY: "auto",
+        width: "min(440px, 92vw)",
+        maxHeight: vvHeight != null ? vvHeight - 32 : "85vh",
+        overflowY: "auto",
         border: `1px solid ${t.border}`, boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
         animation: "slideUp 0.25s ease",
       }}>
