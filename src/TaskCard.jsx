@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import { PRIORITY_CONFIG, THEMES } from "./themes";
 import { parseDate } from "./utils";
 import { Confetti } from "./Toast";
@@ -36,6 +37,12 @@ export default function TaskCard({
   }
 
   const hasSubtasks = task.childSubtasks?.length > 0;
+  const titleRef = useRef(null);
+  const [isClamped, setIsClamped] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (el) setIsClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [task.title, task.parentTitle]);
 
   return (
     <div draggable onDragStart={(e) => onDragStart(e, task)}
@@ -79,15 +86,17 @@ export default function TaskCard({
         </button>
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-start", gap: 4 }} onClick={() => onEdit(task)}>
           {pri.icon && <span style={{ fontSize: `${pri.iconSize * 13}px`, lineHeight: 1.4, flexShrink: 0 }}>{pri.icon}</span>}
-          <div style={{
+          <div ref={titleRef} style={{
             fontSize: 13, fontWeight: 600,
             color: task.completed ? t.textMuted : t.text,
             textDecoration: task.completed ? "line-through" : "none",
             lineHeight: 1.4, overflow: "hidden",
-            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
+            maxHeight: `${3 * 1.4}em`,
             wordBreak: "break-word",
-            maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+            ...(isClamped ? {
+              maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+            } : {}),
           }}>
             {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
             {task.title}
