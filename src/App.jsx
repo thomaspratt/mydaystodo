@@ -118,6 +118,12 @@ export default function App({ session }) {
   const allThemes = useMemo(() => ({ ...THEMES, ...customThemes }), [customThemes]);
   const t = allThemes[theme] || allThemes.sunset;
 
+  // Update PWA theme-color meta tag to match current theme
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t.today);
+  }, [t.today]);
+
   // Get the palette for a theme (stored overrides > theme defaults)
   const getThemePalette = useCallback((themeKey) => {
     if (categoryColors[themeKey]) return categoryColors[themeKey];
@@ -236,6 +242,36 @@ export default function App({ session }) {
       if (e.key === "Tab") { e.preventDefault(); setView((v) => v === "week" ? "month" : "week"); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); navigateWeek(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); navigateWeek(1); }
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const wd = getWeekDates(currentDate);
+        let range;
+        if (view === "week") {
+          range = wd;
+        } else {
+          const y = currentDate.getFullYear(), m = currentDate.getMonth();
+          const daysInMonth = new Date(y, m + 1, 0).getDate();
+          range = Array.from({ length: daysInMonth }, (_, i) => new Date(y, m, i + 1));
+        }
+        const rangeKeys = range.map((d) => dateKey(d));
+        const navKey = lastNavDate ? dateKey(lastNavDate) : null;
+        const idx = navKey !== null ? rangeKeys.indexOf(navKey) : -1;
+        let newIdx;
+        if (idx !== -1) {
+          if (e.key === "ArrowDown") newIdx = idx < range.length - 1 ? idx + 1 : 0;
+          else newIdx = idx > 0 ? idx - 1 : range.length - 1;
+        } else {
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const todayIdx = rangeKeys.indexOf(dateKey(today));
+          if (todayIdx !== -1) {
+            if (e.key === "ArrowDown") newIdx = todayIdx < range.length - 1 ? todayIdx + 1 : 0;
+            else newIdx = todayIdx > 0 ? todayIdx - 1 : range.length - 1;
+          } else {
+            newIdx = e.key === "ArrowDown" ? 0 : range.length - 1;
+          }
+        }
+        setLastNavDate(range[newIdx]);
+      }
       else if ((e.key === "+" || e.key === "=") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         const today = new Date();
@@ -393,7 +429,12 @@ export default function App({ session }) {
   }
 
   // ── Delete handlers ──
-  function requestDelete(task) { setModalTask(null); setDeleteDialog(task); }
+  function requestDelete(task) {
+    setModalTask(null);
+    const isRecurring = !!(task.recurrence || task.isRecurrenceInstance);
+    if (isRecurring) { setDeleteDialog(task); return; }
+    deleteAllFuture(task);
+  }
 
   function deleteThisInstance(task) {
     const origId = task.originalId || task.id;
@@ -518,12 +559,43 @@ export default function App({ session }) {
       return [{ type: "month", label: `Go to ${MONTH_NAMES[monthIdx]} ${year}`, monthIdx, year }];
     }
 
-    // 2. Date match: M/D, M/D/YYYY, Mon D, Month D
-    const mdSlash = q.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+    // 1b. Day number match (1-31): navigate to nearest future day with that number
+    const dayNumMatch = q.match(/^(\d{1,2})$/);
+    if (dayNumMatch) {
+      const dayNum = parseInt(dayNumMatch[1], 10);
+      if (dayNum >= 1 && dayNum <= 31) {
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+        let candidate = new Date(now.getFullYear(), now.getMonth(), dayNum);
+        // If the day doesn't exist in this month or is in the past/today, try next months
+        for (let i = 0; i < 12; i++) {
+          candidate = new Date(now.getFullYear(), now.getMonth() + i, dayNum);
+          if (candidate.getDate() === dayNum && candidate > now) break;
+        }
+        if (candidate.getDate() === dayNum && candidate > now) {
+          const results = [{ type: "date", label: `Go to ${MONTH_NAMES[candidate.getMonth()]} ${dayNum}, ${candidate.getFullYear()}`, date: candidate }];
+          // Fall through to also show task matches below
+          // But first check for M/D or M/D/Y patterns (handled next), so only return if it's purely a day number (1-2 digits, no slash/dash)
+          return results;
+        }
+      }
+    }
+
+    // 2. Date match: M/D, M-D, M/D/YYYY, M-D-YYYY, M/D/YY, M-D-YY, Mon D, Month D
+    const mdSlash = q.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?$/);
     if (mdSlash) {
       const m = parseInt(mdSlash[1], 10) - 1;
       const d = parseInt(mdSlash[2], 10);
-      const y = mdSlash[3] ? parseInt(mdSlash[3], 10) : new Date().getFullYear();
+      let y;
+      if (mdSlash[3]) {
+        y = parseInt(mdSlash[3], 10);
+        if (y < 100) y += 2000;
+      } else {
+        // Nearest future: try this year first, if in past try next year
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+        y = now.getFullYear();
+        const tryDate = new Date(y, m, d);
+        if (tryDate.getMonth() === m && tryDate < now) y++;
+      }
       if (m >= 0 && m <= 11 && d >= 1 && d <= 31) {
         const date = new Date(y, m, d);
         if (date.getMonth() === m) {

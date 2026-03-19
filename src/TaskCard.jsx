@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import { PRIORITY_CONFIG, THEMES } from "./themes";
 import { parseDate } from "./utils";
 import { Confetti } from "./Toast";
@@ -36,6 +37,12 @@ export default function TaskCard({
   }
 
   const hasSubtasks = task.childSubtasks?.length > 0;
+  const titleRef = useRef(null);
+  const [isClamped, setIsClamped] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (el) setIsClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [task.title, task.parentTitle]);
 
   const showRecurrenceBadge = task.recurrence && !task.isRecurrenceInstance;
   const recurrenceText = showRecurrenceBadge
@@ -46,7 +53,13 @@ export default function TaskCard({
 
   return (
     <div draggable onDragStart={(e) => onDragStart(e, task)}
-      style={{ borderRadius: 8, overflow: "hidden", cursor: "grab" }}>
+      style={{
+        borderRadius: 8, overflow: hasSubtasks ? "hidden" : "visible", cursor: "grab",
+        boxShadow: task.completed ? "none"
+          : task.priority === "high" ? `0 0 10px 2px ${catColor}88, 0 0 24px 4px ${catColor}44`
+          : task.priority === "medium" ? `0 0 8px 1px ${catColor}44, 0 0 16px 2px ${catColor}22`
+          : "none",
+      }}>
       <div
         style={{
           position: "relative", padding: showRecurrenceBadge ? "7px 10px 3px" : "7px 10px",
@@ -55,7 +68,9 @@ export default function TaskCard({
             ? `${catColor}0d`
             : (task.isRecurrenceInstance ? `${catColor}10` : `${catColor}1a`),
           borderLeft: `${pri.border + 1.5}px ${task.isRecurrenceInstance ? "dashed" : "solid"} ${catColor}`,
-          boxShadow: task.priority === "high" ? `${pri.glow} ${catColor}66` : "none",
+          boxShadow: task.priority === "high" ? `inset 0 0 18px ${catColor}44`
+            : task.priority === "medium" ? `inset 0 0 10px ${catColor}22`
+            : "none",
           display: "flex", alignItems: "flex-start", gap: 8,
           transition: "all 0.2s ease",
           opacity: task.completed ? 0.5 : (task.isRecurrenceInstance ? 0.55 : 1),
@@ -64,31 +79,41 @@ export default function TaskCard({
         }}
       >
         <Confetti active={confettiTask === task.id} color={catColor} />
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}
-          style={{
-            width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-            border: `2px solid ${task.completed ? catColor : `${catColor}88`}`,
-            background: task.completed ? catColor : "transparent",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            marginTop: 1, animation: task.completed ? "checkPop 0.3s ease" : "none",
-            transition: "all 0.15s ease",
-          }}
-        >
-          {task.completed && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: 1 }}>✓</span>}
-        </button>
-        <div style={{ flex: 1, minWidth: 0 }} onClick={() => onEdit(task)}>
-          <div style={{
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}
+            style={{
+              width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+              border: `2px solid ${task.completed ? catColor : `${catColor}88`}`,
+              background: task.completed ? catColor : "transparent",
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              marginTop: 1, animation: task.completed ? "checkPop 0.3s ease" : "none",
+              transition: "all 0.15s ease",
+            }}
+          >
+            {task.completed && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+          </button>
+          {task.isRecurrenceInstance && task.recurrence && (
+            <div style={{ fontSize: 8, color: t.textMuted, lineHeight: 1, marginTop: 2, display: "flex", alignItems: "center", gap: 1 }}>
+              <span style={{ fontSize: 7 }}>↻</span>
+              {{ daily: "D", weekly: "W", biweekly: "2W", monthly: "M", yearly: "Y" }[task.recurrence]}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-start", gap: 4 }} onClick={() => onEdit(task)}>
+          {pri.icon && <span style={{ fontSize: `${pri.iconSize * 13}px`, lineHeight: 1.4, flexShrink: 0 }}>{pri.icon}</span>}
+          <div ref={titleRef} style={{
             fontSize: 13, fontWeight: 600,
             color: task.completed ? t.textMuted : t.text,
             textDecoration: task.completed ? "line-through" : "none",
             lineHeight: 1.4, overflow: "hidden",
-            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
+            maxHeight: `${3 * 1.4}em`,
             wordBreak: "break-word",
-            maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+            ...(isClamped ? {
+              maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+            } : {}),
           }}>
-            {pri.icon && <span style={{ marginRight: 4, fontSize: `${pri.iconSize}em` }}>{pri.icon}</span>}
             {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
             {task.title}
           </div>

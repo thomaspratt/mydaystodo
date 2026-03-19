@@ -26,34 +26,18 @@ State flows: `localStorage ↔ React state ↔ Supabase`
 - Poll every 15s while tab is visible
 - Echo prevention: skip push/pull if state matches `lastPulledJSON`
 
-**Offline behavior (IN PROGRESS — not yet fixed):**
-The goal is: if a device makes edits while offline, those edits should win when it reconnects (push before pull). If the device was offline but untouched, it should pull fresh state.
-
-**Current approach in `useCloudSync.js`:**
-- `tryPushPendingOrPull(source)` is called on visibility change and poll
-- Compares `serialize(currentState)` to `lastPulledJSON.current`
+**Offline behavior (working):**
+- If a device makes edits while offline, those edits win when it reconnects (push before pull)
+- If the device was offline but untouched, it pulls fresh state
+- `tryPushPendingOrPull()` compares `serialize(currentState)` to `lastPulledJSON.current`
 - If they differ → push (local changes pending) → don't pull
 - If they match → pull
-
-**Known bug being debugged:**
-The offline-edit case still reverts on reconnect. Debug logging has been added. The push correctly detects failure when offline and correctly succeeds on reconnect. However, a second `tryPushPendingOrPull` call fires immediately after the push, sees states match, and calls `pull()`. That pull is what reverts the state.
-
-**Open questions at time of last session:**
-1. What is triggering the second `tryPushPendingOrPull` call? (logging added: `source` param — will show `visibilitychange` or `poll`)
-2. Is the pull returning early (`remote matches local: true`) or actually applying remote state?
-3. If it's applying remote state: is Supabase returning the just-pushed data, or stale data? (task counts logged)
-
-**Debug logging currently in the code** (temporary — remove once fixed):
-- `[sync] push result` — logs error and return value
-- `[sync] debounced push success`
-- `[sync] tryPushPendingOrPull (from: <source>)` — shows what triggered it
-- `[sync] pull — remote matches local / task counts` — shows whether pull applies state
 
 ## File Map
 ```
 src/
   App.jsx          — main component, all state, useCloudSync call is at line ~183
-  useCloudSync.js  — sync logic (actively being worked on)
+  useCloudSync.js  — sync logic (offline-first push/pull)
   storage.js       — simple localStorage helpers (loadState / saveState)
   supabase.js      — Supabase client (hardcoded keys, intentional)
   utils.js         — date helpers, recurrence engine, sound synthesis

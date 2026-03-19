@@ -19,6 +19,33 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
 
   const isEdit = !!task?.id && !task?.isNew;
 
+  // Detect keyboard height via visualViewport shrinking
+  const initialHeight = useRef(window.innerHeight);
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    function onResize() {
+      const kb = initialHeight.current - vv.height;
+      setKbHeight(kb > 100 ? kb : 0);
+    }
+    vv.addEventListener("resize", onResize);
+    vv.addEventListener("scroll", onResize);
+    return () => { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };
+  }, []);
+
+  // Lock scroll while modal is open (overflow:hidden + touchmove for iOS)
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function preventScroll(e) { e.preventDefault(); }
+    document.addEventListener("touchmove", preventScroll, { passive: false });
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("touchmove", preventScroll);
+    };
+  }, []);
+
   function handleSave() {
     if (!title.trim() || !date) return;
     let recurrenceEnd = null;
@@ -94,13 +121,17 @@ export default function TaskModal({ task, onSave, onRequestDelete, onClose, cate
 
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+      position: "fixed", inset: 0,
+      paddingBottom: kbHeight, boxSizing: "border-box",
+      background: "rgba(0,0,0,0.6)",
       display: "flex", alignItems: "center", justifyContent: "center",
       zIndex: 500, backdropFilter: "blur(4px)", animation: "fadeIn 0.2s ease",
     }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{
         background: t.surface, borderRadius: 16, padding: 28,
-        width: "min(440px, 92vw)", maxHeight: "85vh", overflowY: "auto",
+        width: "min(440px, 92vw)",
+        maxHeight: kbHeight > 0 ? `calc(100vh - ${kbHeight + 32}px)` : "85vh",
+        overflowY: "auto",
         border: `1px solid ${t.border}`, boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
         animation: "slideUp 0.25s ease",
       }}>
