@@ -37,13 +37,20 @@ export default function TaskCard({
 
   const hasSubtasks = task.childSubtasks?.length > 0;
 
+  const showRecurrenceBadge = task.recurrence && !task.isRecurrenceInstance;
+  const recurrenceText = showRecurrenceBadge
+    ? `↻ ${task.recurrence}${task.recurrenceEnd
+        ? ` · until ${parseDate(task.recurrenceEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+        : " · ongoing"}`
+    : (task.recurrence ? `↻ ${task.recurrence}` : null);
+
   return (
     <div draggable onDragStart={(e) => onDragStart(e, task)}
       style={{ borderRadius: 8, overflow: "hidden", cursor: "grab" }}>
       <div
         style={{
-          position: "relative", padding: "7px 10px",
-          borderRadius: hasSubtasks ? "8px 8px 0 0" : 8,
+          position: "relative", padding: showRecurrenceBadge ? "7px 10px 3px" : "7px 10px",
+          borderRadius: (hasSubtasks || showRecurrenceBadge) ? "8px 8px 0 0" : 8,
           background: task.completed
             ? `${catColor}0d`
             : (task.isRecurrenceInstance ? `${catColor}10` : `${catColor}1a`),
@@ -53,6 +60,7 @@ export default function TaskCard({
           transition: "all 0.2s ease",
           opacity: task.completed ? 0.5 : (task.isRecurrenceInstance ? 0.55 : 1),
           animation: confettiTask === task.id ? "taskComplete 0.4s ease" : "none",
+          zIndex: 1,
         }}
       >
         <Confetti active={confettiTask === task.id} color={catColor} />
@@ -84,16 +92,21 @@ export default function TaskCard({
             {task.parentTitle && <span style={{ color: t.textMuted, fontWeight: 400 }}>{task.parentTitle} › </span>}
             {task.title}
           </div>
-          {task.recurrence && (
-            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
-              ↻ {task.recurrence}
-              {task.isRecurrenceInstance ? "" : (task.recurrenceEnd
-                ? ` · until ${parseDate(task.recurrenceEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                : " · ongoing")}
-            </div>
-          )}
         </div>
       </div>
+      {showRecurrenceBadge && (
+        <div style={{
+          background: `${catColor}20`,
+          borderLeft: `${pri.border + 1.5}px solid ${catColor}`,
+          borderRadius: (hasSubtasks ? "0" : "0 0 8px 8px"),
+          padding: "2px 10px 4px",
+          fontSize: 10, color: t.textMuted, fontWeight: 600,
+          opacity: task.completed ? 0.5 : 0.85,
+          letterSpacing: 0.3,
+        }}>
+          {recurrenceText}
+        </div>
+      )}
       {hasSubtasks && (
         <div style={{
           borderLeft: `${pri.border + 1.5}px solid ${catColor}`,
